@@ -25,8 +25,8 @@ const PrivateFields = struct {
     allocator: *const std.mem.Allocator = undefined,
     stream: ?std.net.Stream = null,
 
-    closeConn: bool = false,
-    connClosed: bool = false,
+    close_conn: bool = false,
+    conn_closed: bool = false,
 };
 
 pub const Client = struct {
@@ -39,8 +39,8 @@ pub const Client = struct {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writeText(data);
-        const messageResult = message.get().*.?;
-        try self._private.stream.?.writeAll(messageResult);
+        const message_result = message.get().*.?;
+        try self._private.stream.?.writeAll(message_result);
     }
 
     pub fn closeImmediately(self: *Self) void {
@@ -51,33 +51,33 @@ pub const Client = struct {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writeClose();
-        const messageResult = message.get().*.?;
-        try self._private.stream.?.writeAll(messageResult);
+        const message_result = message.get().*.?;
+        try self._private.stream.?.writeAll(message_result);
     }
 
     pub fn sendPing(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writePing();
-        const messageResult = message.get().*.?;
-        try self._private.stream.?.writeAll(messageResult);
+        const message_result = message.get().*.?;
+        try self._private.stream.?.writeAll(message_result);
     }
 
     pub fn sendPong(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writePong();
-        const messageResult = message.get().*.?;
-        try self._private.stream.?.writeAll(messageResult);
+        const message_result = message.get().*.?;
+        try self._private.stream.?.writeAll(message_result);
     }
 
     fn deinit(self: *Self) void {
-        self._private.closeConn = true;
+        self._private.close_conn = true;
         if (self._private.stream != null) {
             self._private.stream.?.close();
             self._private.stream = null;
         }
-        self._private.connClosed = true;
+        self._private.conn_closed = true;
     }
 };
 
@@ -163,7 +163,7 @@ pub fn handshake(self: *Client) !void {
 pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callbacks.ServerOnClose, onPing: Callbacks.ServerOnPing, onPong: Callbacks.ServerOnPong) !void {
     var message: ?Message = null;
 
-    while (self._private.closeConn == false) {
+    while (self._private.close_conn == false) {
         var buffer: [65535]u8 = undefined;
         const buffer_len = self._private.stream.?.read(&buffer) catch |err| {
             std.debug.print("Failed to read buffer: {any}\n", .{err});
@@ -218,7 +218,7 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
         message = null;
     }
 
-    if (self._private.closeConn == false) {
+    if (self._private.close_conn == false) {
         self.deinit();
     }
 }
