@@ -37,9 +37,10 @@ pub const Client = struct {
 
     pub fn sendText(self: *Self, data: []const u8) !void {
         var message = Message{ .allocator = self._private.allocator };
+        defer message.deinit();
         try message.writeText(data);
-        const testdata = message.get().*.?;
-        try self._private.stream.?.writeAll(testdata);
+        const messageResult = message.get().*.?;
+        try self._private.stream.?.writeAll(messageResult);
     }
 
     pub fn closeImmediately(self: *Self) void {
@@ -48,23 +49,26 @@ pub const Client = struct {
 
     pub fn sendClose(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
+        defer message.deinit();
         try message.writeClose();
-        const testdata = message.get().*.?;
-        try self._private.stream.?.writeAll(testdata);
+        const messageResult = message.get().*.?;
+        try self._private.stream.?.writeAll(messageResult);
     }
 
     pub fn sendPing(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
+        defer message.deinit();
         try message.writePing();
-        const testdata = message.get().*.?;
-        try self._private.stream.?.writeAll(testdata);
+        const messageResult = message.get().*.?;
+        try self._private.stream.?.writeAll(messageResult);
     }
 
     pub fn sendPong(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
+        defer message.deinit();
         try message.writePong();
-        const testdata = message.get().*.?;
-        try self._private.stream.?.writeAll(testdata);
+        const messageResult = message.get().*.?;
+        try self._private.stream.?.writeAll(messageResult);
     }
 
     fn deinit(self: *Self) void {
