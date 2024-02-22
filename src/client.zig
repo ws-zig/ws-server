@@ -138,14 +138,14 @@ pub fn handle(self: *Client, cb: Callbacks.ServerOnMessage) !void {
     var message: Message = undefined;
 
     while (self._private.closeConn == false) {
-        var buffer: [1024]u8 = undefined;
-        _ = self._private.stream.?.read(&buffer) catch |err| {
+        var buffer: [65535]u8 = undefined;
+        const buffer_len = self._private.stream.?.read(&buffer) catch |err| {
             std.debug.print("Failed to read buffer: {any}\n", .{err});
             break;
         }; // buffer_size
 
         message = Message{ .allocator = self._private.allocator };
-        message.read(&buffer) catch |err| {
+        message.read(buffer[0..buffer_len]) catch |err| {
             std.debug.print("message.read() failed: {any}\n", .{err});
             message.deinit();
             message = undefined;
