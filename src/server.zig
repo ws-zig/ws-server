@@ -26,6 +26,9 @@ const PrivateFields = struct {
     port: u16 = 8080,
 
     onMessage: Callbacks.ServerOnMessage = null,
+    onClose: Callbacks.ServerOnClose = null,
+    onPing: Callbacks.ServerOnPing = null,
+    onPong: Callbacks.ServerOnPong = null,
 };
 
 pub const Server = struct {
@@ -54,24 +57,36 @@ pub const Server = struct {
 
         while (true) {
             const connection = try server.accept();
-            const thread = try std.Thread.spawn(.{}, _handleClient, .{ self, connection.stream, self._private.onMessage });
+            const thread = try std.Thread.spawn(.{}, _handleClient, .{ self, connection.stream });
             thread.detach();
         }
     }
 
-    fn _handleClient(self: *Self, stream: net.Stream, cb: Callbacks.ServerOnMessage) void {
+    fn _handleClient(self: *Self, stream: net.Stream) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = stream } };
         ClientFile.handshake(&client) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
             client.closeConn();
             return;
         };
-        ClientFile.handle(&client, cb) catch |err| {
+        ClientFile.handle(&client, self._private.onMessage, self._private.onClose, self._private.onPing, self._private.onPong) catch |err| {
             std.debug.print("something went wrong: {any}\n", .{err});
         };
     }
 
     pub fn onMessage(self: *Self, cb: Callbacks.ServerOnMessage) void {
         self._private.onMessage = cb;
+    }
+
+    pub fn onClose(self: *Self, cb: Callbacks.ServerOnClose) void {
+        self._private.onClose = cb;
+    }
+
+    pub fn onPing(self: *Self, cb: Callbacks.ServerOnPing) void {
+        self._private.onPing = cb;
+    }
+
+    pub fn onPong(self: *Self, cb: Callbacks.ServerOnPong) void {
+        self._private.onPong = cb;
     }
 };

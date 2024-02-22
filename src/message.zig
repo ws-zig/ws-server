@@ -25,6 +25,10 @@ pub const Message = struct {
     // Tells us whether the message is complete or whether we need to wait for new data.
     _ready: bool = false,
 
+    _close: bool = false,
+    _ping: bool = false,
+    _pong: bool = false,
+
     const Self = @This();
 
     pub fn get(self: *Self) *?[]u8 {
@@ -33,6 +37,18 @@ pub const Message = struct {
 
     pub fn isReady(self: *Self) bool {
         return self._ready;
+    }
+
+    pub fn isClose(self: *Self) bool {
+        return self._close;
+    }
+
+    pub fn isPing(self: *Self) bool {
+        return self._ping;
+    }
+
+    pub fn isPong(self: *Self) bool {
+        return self._pong;
     }
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
@@ -46,6 +62,9 @@ pub const Message = struct {
 
         const data = try frame.read();
         self._ready = frame.getFin();
+        self._close = frame.getOpcode() == FrameOpcode.Close;
+        self._ping = frame.getOpcode() == FrameOpcode.Ping;
+        self._pong = frame.getOpcode() == FrameOpcode.Pong;
 
         var old_bytes_len: usize = 0;
         if (self._bytes == null) {
@@ -58,17 +77,32 @@ pub const Message = struct {
         @memcpy(self._bytes.?[old_bytes_len..], data.*);
     }
 
-    /// Create a new text message.
-    pub fn writeText(self: *Self, data: []const u8) !void {
+    fn _write(self: *Self, data: []const u8, opcode: FrameOpcode) !void {
         if (self.allocator == undefined) {
             return error.MissingAllocator;
         }
 
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
-        const frame_bytes = try frame.write(FrameOpcode.Text);
+        const frame_bytes = try frame.write(opcode);
         self._bytes = try self.allocator.alloc(u8, frame_bytes.*.len);
         @memcpy(self._bytes.?, frame_bytes.*);
+    }
+
+    pub fn writeText(self: *Self, data: []const u8) !void {
+        try self._write(data, FrameOpcode.Text);
+    }
+
+    pub fn writeClose(self: *Self) !void {
+        try self._write("", FrameOpcode.Close);
+    }
+
+    pub fn writePong(self: *Self) !void {
+        try self._write("", FrameOpcode.Pong);
+    }
+
+    pub fn writePing(self: *Self) !void {
+        try self._write("", FrameOpcode.Ping);
     }
 
     pub fn deinit(self: *Self) void {

@@ -46,6 +46,27 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(testdata);
     }
 
+    pub fn sendClose(self: *Self) !void {
+        var message = Message{ .allocator = self._private.allocator };
+        try message.writeClose();
+        const testdata = message.get().*.?;
+        try self._private.stream.?.writeAll(testdata);
+    }
+
+    pub fn sendPing(self: *Self) !void {
+        var message = Message{ .allocator = self._private.allocator };
+        try message.writePing();
+        const testdata = message.get().*.?;
+        try self._private.stream.?.writeAll(testdata);
+    }
+
+    pub fn sendPong(self: *Self) !void {
+        var message = Message{ .allocator = self._private.allocator };
+        try message.writePong();
+        const testdata = message.get().*.?;
+        try self._private.stream.?.writeAll(testdata);
+    }
+
     fn deinit(self: *Self) void {
         self._private.closeConn = true;
         if (self._private.stream != null) {
@@ -134,8 +155,9 @@ pub fn handshake(self: *Client) !void {
     try self._private.stream.?.writer().writeAll(header_result);
 }
 
-pub fn handle(self: *Client, cb: Callbacks.ServerOnMessage) !void {
+pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callbacks.ServerOnClose, onPing: Callbacks.ServerOnPing, onPong: Callbacks.ServerOnPong) !void {
     var message: Message = undefined;
+    defer message.deinit();
 
     while (self._private.closeConn == false) {
         var buffer: [65535]u8 = undefined;
@@ -154,9 +176,31 @@ pub fn handle(self: *Client, cb: Callbacks.ServerOnMessage) !void {
         if (message.isReady() == false) {
             continue;
         }
+        if (message.isClose() == true) {
+            if (onClose != null) {
+                onClose.?(self) catch |err| {
+                    std.debug.print("onClose() failed: {any}\n", .{err});
+                };
+            }
+            break;
+        }
+        if (message.isPing() == true) {
+            if (onPing != null) {
+                onPing.?(self) catch |err| {
+                    std.debug.print("onPing() failed: {any}\n", .{err});
+                };
+            }
+        } else if (message.isPong() == true) {
+            if (onPong != null) {
+                onPong.?(self) catch |err| {
+                    std.debug.print("onPong() failed: {any}\n", .{err});
+                };
+            }
+        }
 
-        if (cb != null) {
-            cb.?(self, message.get().*.?) catch |err| {
+        const message_data = message.get().*;
+        if (onMsg != null and message_data != null and message_data.?.len > 0) {
+            onMsg.?(self, message_data.?) catch |err| {
                 std.debug.print("onMessage() failed: {any}\n", .{err});
             };
         }

@@ -53,6 +53,7 @@ pub const Opcode = enum(u8) {
     Text = 1,
     Binary = 2,
 
+    Close = 8,
     Ping = 9,
     Pong = 10,
 };
@@ -75,6 +76,10 @@ pub const Frame = struct {
 
     pub fn getFin(self: *Self) bool {
         return self._fin;
+    }
+
+    pub fn getOpcode(self: *Self) Opcode {
+        return @enumFromInt(self._opcode);
     }
 
     pub fn read(self: *Self) FrameError!*[]u8 {

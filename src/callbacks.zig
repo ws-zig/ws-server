@@ -15,3 +15,6 @@
 const Client = @import("./client.zig").Client;
 
 pub const ServerOnMessage = ?*const fn (client: *Client, data: []const u8) anyerror!void;
+pub const ServerOnClose = ?*const fn (client: *Client) anyerror!void;
+pub const ServerOnPing = ?*const fn (client: *Client) anyerror!void;
+pub const ServerOnPong = ?*const fn (client: *Client) anyerror!void;
