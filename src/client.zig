@@ -15,8 +15,8 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const Callbacks = @import("./callbacks.zig");
 const Message = @import("./message.zig").Message;
+const Callbacks = @import("./callbacks.zig");
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -40,6 +40,10 @@ pub const Client = struct {
         try message.writeText(data);
         const testdata = message.get().*.?;
         try self._private.stream.?.writeAll(testdata);
+    }
+
+    pub fn closeImmediately(self: *Self) void {
+        self.deinit();
     }
 
     pub fn sendClose(self: *Self) !void {
@@ -84,6 +88,7 @@ pub fn handshake(self: *Client) !void {
     //std.debug.print("=== handshake ===\n", .{});
 
     var headers = std.StringHashMap([]const u8).init(self._private.allocator.*);
+    defer headers.clearAndFree();
 
     var method: []const u8 = undefined;
     var uri: []const u8 = undefined;
@@ -210,6 +215,6 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
     }
 
     if (self._private.closeConn == false) {
-        self.closeConn();
+        self.deinit();
     }
 }

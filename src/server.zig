@@ -66,7 +66,7 @@ pub const Server = struct {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = stream } };
         ClientFile.handshake(&client) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
-            client.closeConn();
+            client.closeImmediately();
             return;
         };
         ClientFile.handle(&client, self._private.onMessage, self._private.onClose, self._private.onPing, self._private.onPong) catch |err| {
