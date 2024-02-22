@@ -4,7 +4,7 @@
 **Tested version of Zig:** 0.11.0
 
 **IMPORTANT:**
-In Zig it is not possible to keep some variables and functions secret, make sure that the note `@SELFONLY` is not present, otherwise this function or variable is not intended for you.
+This is my first project in the Zig programming language. The focus is on the server, a client is planned for the future.
 
 ## Installation
 - [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).

@@ -14,4 +14,4 @@
 
 const Client = @import("./client.zig").Client;
 
-pub const ServerOnMessage = *const fn (client: *Client, data: []const u8) anyerror!void;
+pub const ServerOnMessage = ?*const fn (client: *Client, data: []const u8) anyerror!void;
