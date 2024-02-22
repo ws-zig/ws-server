@@ -156,8 +156,7 @@ pub fn handshake(self: *Client) !void {
 }
 
 pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callbacks.ServerOnClose, onPing: Callbacks.ServerOnPing, onPong: Callbacks.ServerOnPong) !void {
-    var message: Message = undefined;
-    defer message.deinit();
+    var message: ?Message = null;
 
     while (self._private.closeConn == false) {
         var buffer: [65535]u8 = undefined;
@@ -167,16 +166,16 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
         }; // buffer_size
 
         message = Message{ .allocator = self._private.allocator };
-        message.read(buffer[0..buffer_len]) catch |err| {
+        message.?.read(buffer[0..buffer_len]) catch |err| {
             std.debug.print("message.read() failed: {any}\n", .{err});
-            message.deinit();
-            message = undefined;
+            message.?.deinit();
+            message = null;
             continue;
         };
-        if (message.isReady() == false) {
+        if (message.?.isReady() == false) {
             continue;
         }
-        if (message.isClose() == true) {
+        if (message.?.isClose() == true) {
             if (onClose != null) {
                 onClose.?(self) catch |err| {
                     std.debug.print("onClose() failed: {any}\n", .{err});
@@ -184,13 +183,13 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
             }
             break;
         }
-        if (message.isPing() == true) {
+        if (message.?.isPing() == true) {
             if (onPing != null) {
                 onPing.?(self) catch |err| {
                     std.debug.print("onPing() failed: {any}\n", .{err});
                 };
             }
-        } else if (message.isPong() == true) {
+        } else if (message.?.isPong() == true) {
             if (onPong != null) {
                 onPong.?(self) catch |err| {
                     std.debug.print("onPong() failed: {any}\n", .{err});
@@ -198,15 +197,20 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
             }
         }
 
-        const message_data = message.get().*;
+        const message_data = message.?.get().*;
         if (onMsg != null and message_data != null and message_data.?.len > 0) {
             onMsg.?(self, message_data.?) catch |err| {
                 std.debug.print("onMessage() failed: {any}\n", .{err});
             };
         }
 
-        message.deinit();
-        message = undefined;
+        message.?.deinit();
+        message = null;
+    }
+
+    if (message != null) {
+        message.?.deinit();
+        message = null;
     }
 
     if (self._private.closeConn == false) {
