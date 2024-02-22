@@ -22,10 +22,14 @@ const Message = @import("./message.zig").Message;
 const Callbacks = @import("./callbacks.zig");
 
 pub const Server = struct {
+    /// @SELFONLY
     _allocator: *const Allocator = undefined,
+    /// @SELFONLY
     _addr: []const u8 = undefined,
+    /// @SELFONLY
     _port: u16 = 8080,
 
+    /// @SELFONLY
     _onMessage: Callbacks.ServerOnMessage = undefined,
 
     const Self = @This();

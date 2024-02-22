@@ -26,10 +26,14 @@ const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 pub const Client = struct {
+    /// @SELFONLY
     allocator: *const Allocator = undefined,
+    /// @SELFONLY
     stream: ?net.Stream = null,
 
+    /// @SELFONLY
     _closeConn: bool = false,
+    /// @SELFONLY
     _connClosed: bool = false,
 
     const Self = @This();
@@ -49,6 +53,7 @@ pub const Client = struct {
         self._connClosed = true;
     }
 
+    /// @SELFONLY
     pub fn handshake(self: *const Self) !void {
         try self._validate();
 
@@ -122,6 +127,7 @@ pub const Client = struct {
         try self.stream.?.writer().writeAll(header_result);
     }
 
+    /// @SELFONLY
     pub fn handle(self: *Self, cb: Callbacks.ServerOnMessage) !void {
         var message: Message = undefined;
 
