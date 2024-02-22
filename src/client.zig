@@ -35,10 +35,6 @@ pub const Client = struct {
 
     const Self = @This();
 
-    pub fn closeConn(self: *Self) void {
-        self.deinit();
-    }
-
     pub fn sendText(self: *Self, data: []const u8) !void {
         var message = Message{ .allocator = self._private.allocator };
         try message.writeText(data);
