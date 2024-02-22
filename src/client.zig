@@ -15,7 +15,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const FrameFile = @import("./frame.zig");
 const Callbacks = @import("./callbacks.zig");
 const Message = @import("./message.zig").Message;
 
