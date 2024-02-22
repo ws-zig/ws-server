@@ -46,7 +46,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const FrameError = error{ Unknown, OutOfMemory, MissingAllocator, MissingBytes };
+pub const FrameError = error{ Unknown, OutOfMemory, MissingAllocator, MissingBytes, TooManyBytes };
 
 pub const Opcode = enum(u8) {
     Continue = 0,
@@ -119,31 +119,46 @@ pub const Frame = struct {
     }
 
     fn _parse_payload(self: *Self) !void {
+        var extra_len: u8 = 0;
         if (self._payload_len == 126) {
-            // TODO
+            self._payload_len = @intCast(@as(u16, self.bytes.?[2]) << 8 | self.bytes.?[3]);
+            extra_len += 2;
         } else if (self._payload_len > 126) {
-            // TODO
+            self._payload_len = @intCast(@as(u32, self.bytes.?[2]) << 24 | @as(u32, self.bytes.?[3]) << 16 | @as(u32, self.bytes.?[4]) << 8 | self.bytes.?[5]);
+            extra_len += 4;
         }
 
         var masking_key: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
         if (self._masked == true) {
-            masking_key = self.bytes.?[2..6].*;
+            masking_key = self.bytes.?[(2 + extra_len)..(6 + extra_len)][0..4].*;
         }
 
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
-        @memcpy(self._payload_data.?, self.bytes.?[6..(6 + self._payload_len)]);
+        @memcpy(self._payload_data.?, self.bytes.?[(6 + extra_len)..(6 + extra_len + self._payload_len)]);
 
         for (self._payload_data.?, 0..) |v, i| {
             self._payload_data.?[i] = (v ^ masking_key[i % 4]);
         }
     }
 
-    // TODO
     pub fn write(self: *Self, opcode: Opcode) FrameError!*[]u8 {
-        self._payload_data = try self.allocator.alloc(u8, 2 + self.bytes.?.len);
-        self._payload_data.?[0] = @intFromEnum(opcode) | 0b10000000;
-        self._payload_data.?[1] = @truncate(self.bytes.?.len);
-        @memcpy(self._payload_data.?[2..], self.bytes.?);
+        var extra_len: u8 = 0;
+        var extra_data: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
+        extra_data[0] = @intFromEnum(opcode) | 0b10000000;
+        if (self.bytes.?.len <= 125) {
+            extra_data[1] = @intCast(self.bytes.?.len);
+            extra_len += 2;
+        } else if (self.bytes.?.len <= 65531) {
+            extra_data[1] = 126;
+            extra_data[2] = @intCast((self.bytes.?.len >> 8 & 0b11111111));
+            extra_data[3] = @intCast(self.bytes.?.len & 0b11111111);
+            extra_len += 4;
+        } else { // Don't send more data than we can receive
+            return FrameError.TooManyBytes;
+        }
+        self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.?.len);
+        @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
+        @memcpy(self._payload_data.?[extra_len..], self.bytes.?);
         return &self._payload_data.?;
     }
 
