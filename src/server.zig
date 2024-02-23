@@ -17,7 +17,6 @@ const net = std.net;
 const Allocator = std.mem.Allocator;
 
 const ClientFile = @import("./client.zig");
-const Message = @import("./message.zig").Message;
 const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
