@@ -210,6 +210,9 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
                 std.debug.print("message.read() failed: {any}\n", .{err});
                 continue;
             };
+            if (message.?.isReady() == false) {
+                continue;
+            }
         }
 
         if (message.?.isClose() == true) {
