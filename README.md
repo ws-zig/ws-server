@@ -26,7 +26,11 @@ This is my first project in the Zig programming language. The focus is on the se
     const wsServerModule = b.addModule("ws-server", .{ .source_file = .{ .path = "PATH_TO_DIRECTORY/ws-server-main/src/main.zig" } });
     exe.addModule("ws-server", wsServerModule);
 ```
-- Save and write your program!
+- Save the file and you're done!
+
+#### To build or run your project, you can use the following commands:
+- build: `zig build`
+- run: `zig run .\src\main.zig --deps ws-server --mod ws-server::PATH_TO_DIRECTORY\ws-server-main\src\main.zig`
 
 ## Example
 ### Server:
