@@ -69,7 +69,7 @@ pub const Frame = struct {
     _opcode: u8 = 0,
     _masked: bool = false,
 
-    _payload_len: u8 = 0,
+    _payload_len: u16 = 0,
     _payload_data: ?[]u8 = null,
 
     const Self = @This();

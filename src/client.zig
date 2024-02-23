@@ -43,10 +43,6 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
-    pub fn closeImmediately(self: *Self) void {
-        self.deinit();
-    }
-
     pub fn sendClose(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
@@ -71,6 +67,10 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
+    pub fn closeImmediately(self: *Self) void {
+        self.deinit();
+    }
+
     fn deinit(self: *Self) void {
         self._private.close_conn = true;
         if (self._private.stream != null) {
@@ -80,6 +80,60 @@ pub const Client = struct {
         self._private.conn_closed = true;
     }
 };
+
+fn getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringHashMap([]const u8) {
+    var result = std.StringHashMap([]const u8).init(allocator.*);
+
+    var header_line: []u8 = undefined;
+    var first_header_line: bool = true;
+    while (true) {
+        header_line = try stream.reader().readUntilDelimiterAlloc(allocator.*, '\n', std.math.maxInt(usize));
+        header_line = header_line[0..(header_line.len - 1)];
+
+        // End of header
+        if (header_line.len == 0) {
+            break;
+        }
+
+        if (first_header_line == true) {
+            var header_line_iter = std.mem.split(u8, header_line, " ");
+            first_header_line = false;
+            const method = header_line_iter.next().?;
+            try result.put("method", method);
+            const uri = header_line_iter.next().?;
+            try result.put("uri", uri);
+            const version = header_line_iter.next().?;
+            try result.put("version", version);
+            continue;
+        }
+        var header_line_iter = std.mem.split(u8, header_line, ": ");
+        const key = header_line_iter.next().?;
+        const value = header_line_iter.next().?;
+
+        //std.debug.print("header: {s}({d}):{s}({d})\n", .{ key, key.len, value, value.len });
+
+        try result.put(key, value);
+    }
+
+    return result;
+}
+
+fn getSha1(header_key: []const u8) [20]u8 {
+    var sha1_out: [20]u8 = undefined;
+    var sha1_key = std.crypto.hash.Sha1.init(.{});
+    sha1_key.update(header_key);
+    sha1_key.update(MAGIC_STRING);
+    sha1_key.final(&sha1_out);
+    return sha1_out;
+}
+
+fn getBase64(allocator: *const Allocator, sha1_out: [20]u8) ![]const u8 {
+    const base64 = std.base64.Base64Encoder.init(ENCODER_ALPHABETE.*, '=');
+    const base64_out_len = base64.calcSize(sha1_out.len);
+    const base64_out = try allocator.alloc(u8, base64_out_len);
+    _ = base64.encode(base64_out, &sha1_out);
+    return base64_out;
+}
 
 pub fn handshake(self: *Client) !void {
     if (self._private.allocator == undefined) {
@@ -91,67 +145,28 @@ pub fn handshake(self: *Client) !void {
 
     //std.debug.print("=== handshake ===\n", .{});
 
-    var headers = std.StringHashMap([]const u8).init(self._private.allocator.*);
+    var headers = try getHeaders(self._private.allocator, self._private.stream.?);
     defer headers.clearAndFree();
 
-    var method: []const u8 = undefined;
-    var uri: []const u8 = undefined;
-    var version: []const u8 = undefined;
-
-    var header_line: []u8 = undefined;
-    var first_header_line: bool = true;
-    while (true) {
-        header_line = try self._private.stream.?.reader().readUntilDelimiterAlloc(self._private.allocator.*, '\n', std.math.maxInt(usize));
-        header_line = header_line[0..(header_line.len - 1)];
-
-        // End of header
-        if (header_line.len == 0) {
-            break;
-        }
-
-        if (first_header_line == true) {
-            var header_line_iter = std.mem.split(u8, header_line, " ");
-            first_header_line = false;
-            method = header_line_iter.next().?;
-            uri = header_line_iter.next().?;
-            version = header_line_iter.next().?;
-            continue;
-        }
-        var header_line_iter = std.mem.split(u8, header_line, ": ");
-        const key = header_line_iter.next().?;
-        const value = header_line_iter.next().?;
-
-        //std.debug.print("header: {s}({d}):{s}({d})\n", .{ key, key.len, value, value.len });
-
-        try headers.put(key, value);
-    }
-
+    const header_version = headers.get("version").?;
     const header_key = headers.get("Sec-WebSocket-Key").?;
 
-    var sha1_out: [20]u8 = undefined;
-    var sha1_key = std.crypto.hash.Sha1.init(.{});
-    sha1_key.update(header_key);
-    sha1_key.update(MAGIC_STRING);
-    sha1_key.final(&sha1_out);
-
-    const base64 = std.base64.Base64Encoder.init(ENCODER_ALPHABETE.*, '=');
-    const base64_out_len = base64.calcSize(sha1_out.len);
-    const base64_out = try self._private.allocator.alloc(u8, base64_out_len);
+    const sha1_out = getSha1(header_key);
+    const base64_out = try getBase64(self._private.allocator, sha1_out);
     defer self._private.allocator.free(base64_out);
-    const base64_result = base64.encode(base64_out, sha1_out[0..]);
 
     const header_result_basic = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
-    const header_result = try self._private.allocator.alloc(u8, version.len + header_result_basic.len + base64_result.len + 4);
+    const header_result = try self._private.allocator.alloc(u8, header_version.len + header_result_basic.len + base64_out.len + 4);
     defer self._private.allocator.free(header_result);
     var dest_pos: usize = 0;
-    var src_pos: usize = version.len;
-    @memcpy(header_result[dest_pos..src_pos], version);
+    var src_pos: usize = header_version.len;
+    @memcpy(header_result[dest_pos..src_pos], header_version);
     dest_pos = src_pos;
     src_pos = dest_pos + header_result_basic.len;
     @memcpy(header_result[dest_pos..src_pos], header_result_basic);
     dest_pos = src_pos;
-    src_pos = dest_pos + base64_result.len;
-    @memcpy(header_result[dest_pos..src_pos], base64_result);
+    src_pos = dest_pos + base64_out.len;
+    @memcpy(header_result[dest_pos..src_pos], base64_out);
     dest_pos = src_pos;
     src_pos = dest_pos + 4;
     @memcpy(header_result[dest_pos..src_pos], "\r\n\r\n");
@@ -168,18 +183,35 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
         const buffer_len = self._private.stream.?.read(&buffer) catch |err| {
             std.debug.print("Failed to read buffer: {any}\n", .{err});
             break;
-        }; // buffer_size
-
-        message = Message{ .allocator = self._private.allocator };
-        message.?.read(buffer[0..buffer_len]) catch |err| {
-            std.debug.print("message.read() failed: {any}\n", .{err});
-            message.?.deinit();
-            message = null;
-            continue;
         };
-        if (message.?.isReady() == false) {
-            continue;
+
+        var recreate_message = true;
+        if (message != null) {
+            if (message.?.isReady() == true) {
+                message.?.deinit();
+                message = null;
+            } else {
+                message.?.read(buffer[0..buffer_len]) catch |err| {
+                    std.debug.print("message.read() failed: {any}\n", .{err});
+                    break;
+                };
+
+                if (message.?.isReady() == false) {
+                    continue;
+                } else {
+                    recreate_message = false;
+                }
+            }
         }
+
+        if (recreate_message == true) {
+            message = Message{ .allocator = self._private.allocator };
+            message.?.read(buffer[0..buffer_len]) catch |err| {
+                std.debug.print("message.read() failed: {any}\n", .{err});
+                continue;
+            };
+        }
+
         if (message.?.isClose() == true) {
             if (onClose != null) {
                 onClose.?(self) catch |err| {
@@ -194,23 +226,23 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
                     std.debug.print("onPing() failed: {any}\n", .{err});
                 };
             }
-        } else if (message.?.isPong() == true) {
+            continue;
+        }
+        if (message.?.isPong() == true) {
             if (onPong != null) {
                 onPong.?(self) catch |err| {
                     std.debug.print("onPong() failed: {any}\n", .{err});
                 };
             }
+            continue;
         }
 
         const message_data = message.?.get().*;
-        if (onMsg != null and message_data != null and message_data.?.len > 0) {
+        if (onMsg != null and message_data != null) {
             onMsg.?(self, message_data.?) catch |err| {
                 std.debug.print("onMessage() failed: {any}\n", .{err});
             };
         }
-
-        message.?.deinit();
-        message = null;
     }
 
     if (message != null) {

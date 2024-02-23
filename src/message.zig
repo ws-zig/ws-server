@@ -25,9 +25,9 @@ pub const Message = struct {
     // Tells us whether the message is complete or whether we need to wait for new data.
     _ready: bool = false,
 
-    _close: bool = false,
-    _ping: bool = false,
-    _pong: bool = false,
+    _is_close: bool = false,
+    _is_ping: bool = false,
+    _is_pong: bool = false,
 
     const Self = @This();
 
@@ -40,15 +40,15 @@ pub const Message = struct {
     }
 
     pub fn isClose(self: *Self) bool {
-        return self._close;
+        return self._is_close;
     }
 
     pub fn isPing(self: *Self) bool {
-        return self._ping;
+        return self._is_ping;
     }
 
     pub fn isPong(self: *Self) bool {
-        return self._pong;
+        return self._is_pong;
     }
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
@@ -61,10 +61,11 @@ pub const Message = struct {
         defer frame.deinit();
 
         const data = try frame.read();
+
         self._ready = frame.getFin();
-        self._close = frame.getOpcode() == FrameOpcode.Close;
-        self._ping = frame.getOpcode() == FrameOpcode.Ping;
-        self._pong = frame.getOpcode() == FrameOpcode.Pong;
+        self._is_close = frame.getOpcode() == FrameOpcode.Close;
+        self._is_ping = frame.getOpcode() == FrameOpcode.Ping;
+        self._is_pong = frame.getOpcode() == FrameOpcode.Pong;
 
         var old_bytes_len: usize = 0;
         if (self._bytes == null) {
