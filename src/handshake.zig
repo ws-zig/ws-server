@@ -37,7 +37,12 @@ pub fn handle(self: *Client) !void {
     defer headers.deinit();
 
     const header_version = headers.get("version").?;
-    const header_key = headers.get("Sec-WebSocket-Key").?;
+    var header_key: []const u8 = undefined;
+    if (headers.get("Sec-WebSocket-Key")) |v| {
+        header_key = v;
+    } else {
+        return error.MissingSecWebSocketKey;
+    }
 
     const sha1_out = _getSha1(header_key);
     const base64_out = try _getBase64(self._private.allocator, sha1_out);
@@ -83,9 +88,24 @@ fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringH
             first_header_line = false;
 
             var header_line_iter = std.mem.split(u8, header_line, " ");
-            const method = header_line_iter.next().?;
-            const uri = header_line_iter.next().?;
-            const version = header_line_iter.next().?;
+            var method: []const u8 = undefined;
+            if (header_line_iter.next()) |v| {
+                method = v;
+            } else {
+                return error.MissingMethod;
+            }
+            var uri: []const u8 = undefined;
+            if (header_line_iter.next()) |v| {
+                uri = v;
+            } else {
+                return error.MissingUri;
+            }
+            var version: []const u8 = undefined;
+            if (header_line_iter.next()) |v| {
+                version = v;
+            } else {
+                return error.MissingVersion;
+            }
 
             //std.debug.print("header: {s} {s} {s}\n", .{ method, uri, version });
 
