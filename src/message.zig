@@ -63,13 +63,14 @@ pub const Message = struct {
         const data = try frame.read();
 
         self._ready = frame.getFin();
-        self._is_close = frame.getOpcode() == FrameOpcode.Close;
-        self._is_ping = frame.getOpcode() == FrameOpcode.Ping;
-        self._is_pong = frame.getOpcode() == FrameOpcode.Pong;
 
         var old_bytes_len: usize = 0;
         if (self._bytes == null) {
             self._bytes = try self.allocator.alloc(u8, data.len);
+
+            self._is_close = frame.getOpcode() == FrameOpcode.Close;
+            self._is_ping = frame.getOpcode() == FrameOpcode.Ping;
+            self._is_pong = frame.getOpcode() == FrameOpcode.Pong;
         } else {
             old_bytes_len = self._bytes.?.len;
             self._bytes = try self.allocator.realloc(self._bytes.?, old_bytes_len + data.len);

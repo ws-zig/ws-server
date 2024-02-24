@@ -90,12 +90,12 @@ pub const Frame = struct {
             return FrameError.MissingBytes;
         }
 
-        self._parse_flags();
-        try self._parse_payload();
+        self._parseFlags();
+        try self._parsePayload();
         return &self._payload_data.?;
     }
 
-    fn _parse_flags(self: *Self) void {
+    fn _parseFlags(self: *Self) void {
         // The FIN bit tells whether this is the last message in a series.
         // If it's false, then the server keeps listening for more parts of the message.
         self._fin = (self.bytes.?[0] & 0b10000000) != 0;
@@ -118,7 +118,7 @@ pub const Frame = struct {
         //std.debug.print("payload length: {any}\n", .{self._payload_len});
     }
 
-    fn _parse_payload(self: *Self) !void {
+    fn _parsePayload(self: *Self) !void {
         var extra_len: u8 = 0;
         if (self._payload_len == 126) {
             self._payload_len = @intCast(@as(u16, self.bytes.?[2]) << 8 | self.bytes.?[3]);

@@ -73,18 +73,62 @@ pub const Server = struct {
         };
     }
 
+    /// Set a callback when a "text" message is received from the client.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onMessage(client: *Client, data: []const u8) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onMessage(&_onMessage);
+    /// // ...
+    /// ```
     pub fn onMessage(self: *Self, cb: Callbacks.ServerOnMessage) void {
         self._private.onMessage = cb;
     }
 
+    /// Set a callback when a "close" message is received from the client.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onClose(client: *Client) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onClose(&_onClose);
+    /// // ...
+    /// ```
     pub fn onClose(self: *Self, cb: Callbacks.ServerOnClose) void {
         self._private.onClose = cb;
     }
 
+    /// Set a callback when a "ping" message is received from the client.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onPing(client: *Client) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onPing(&_onPing);
+    /// // ...
+    /// ```
     pub fn onPing(self: *Self, cb: Callbacks.ServerOnPing) void {
         self._private.onPing = cb;
     }
 
+    /// Set a callback when a "pong" message is received from the client.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onPong(_: *Client) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onPong(&_onPong);
+    /// // ...
+    /// ```
     pub fn onPong(self: *Self, cb: Callbacks.ServerOnPong) void {
         self._private.onPong = cb;
     }

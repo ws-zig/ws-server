@@ -32,6 +32,9 @@ pub const Client = struct {
 
     const Self = @This();
 
+    /// Send a "text" message to this client.
+    ///
+    /// **IMPORTANT:** The message cannot contain more than 65531 bytes!
     pub fn sendText(self: *Self, data: []const u8) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
@@ -40,6 +43,9 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
+    /// Send a "close" message to this client.
+    ///
+    /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
     pub fn sendClose(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
@@ -48,6 +54,7 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
+    /// Send a "ping" message to this client. (A "pong" message should come back)
     pub fn sendPing(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
@@ -56,6 +63,7 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
+    /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
     pub fn sendPong(self: *Self) !void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
@@ -64,11 +72,12 @@ pub const Client = struct {
         try self._private.stream.?.writeAll(message_result);
     }
 
+    /// Close the connection from this client immediately. (No "close" message is sent to the client!)
     pub fn closeImmediately(self: *Self) void {
-        self.deinit();
+        self._deinit();
     }
 
-    fn deinit(self: *Self) void {
+    fn _deinit(self: *Self) void {
         self._private.close_conn = true;
         if (self._private.stream != null) {
             self._private.stream.?.close();
@@ -90,36 +99,20 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
             break;
         };
 
-        var recreate_message = true;
-        if (message != null) {
-            if (message.?.isReady() == true) {
-                message.?.deinit();
-                message = null;
-            } else {
-                message.?.read(buffer[0..buffer_len]) catch |err| {
-                    std.debug.print("message.read() failed: {any}\n", .{err});
-                    break;
-                };
-
-                if (message.?.isReady() == false) {
-                    continue;
-                } else {
-                    recreate_message = false;
-                }
-            }
-        }
-
-        if (recreate_message == true) {
+        if (message == null) {
             message = Message{ .allocator = self._private.allocator };
-            message.?.read(buffer[0..buffer_len]) catch |err| {
-                std.debug.print("message.read() failed: {any}\n", .{err});
-                continue;
-            };
-            if (message.?.isReady() == false) {
-                continue;
-            }
+        }
+        message.?.read(buffer[0..buffer_len]) catch |err| {
+            std.debug.print("message.read() failed: {any}\n", .{err});
+            break;
+        };
+
+        // Tells us if the message has all the data and can now be processed.
+        if (message.?.isReady() == false) {
+            continue;
         }
 
+        // The client sends us a "close" message, so he wants to disconnect properly.
         if (message.?.isClose() == true) {
             if (onClose != null) {
                 onClose.?(self) catch |err| {
@@ -128,37 +121,45 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
             }
             break;
         }
+        // "Hello server, are you there?"
         if (message.?.isPing() == true) {
             if (onPing != null) {
                 onPing.?(self) catch |err| {
                     std.debug.print("onPing() failed: {any}\n", .{err});
                 };
             }
-            continue;
         }
-        if (message.?.isPong() == true) {
+        // "Hello server, here I am"
+        else if (message.?.isPong() == true) {
             if (onPong != null) {
                 onPong.?(self) catch |err| {
                     std.debug.print("onPong() failed: {any}\n", .{err});
                 };
             }
-            continue;
+        }
+        // Process received message...
+        else {
+            const message_data = message.?.get().*;
+            if (onMsg != null and message_data != null) {
+                onMsg.?(self, message_data.?) catch |err| {
+                    std.debug.print("onMessage() failed: {any}\n", .{err});
+                };
+            }
         }
 
-        const message_data = message.?.get().*;
-        if (onMsg != null and message_data != null) {
-            onMsg.?(self, message_data.?) catch |err| {
-                std.debug.print("onMessage() failed: {any}\n", .{err});
-            };
-        }
+        // We need to deinitialize the message and set the value to `null`,
+        // otherwise the next loop will not create a new message and write the new data into the old message.
+        message.?.deinit();
+        message = null;
     }
 
+    // If the message is not `null`, we want to free the allocated memory.
     if (message != null) {
         message.?.deinit();
         message = null;
     }
 
     if (self._private.close_conn == false) {
-        self.deinit();
+        self._deinit();
     }
 }
