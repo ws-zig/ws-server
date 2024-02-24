@@ -55,14 +55,18 @@ pub const Server = struct {
         std.debug.print("Listen at {any}\n", .{address.in});
 
         while (true) {
-            const connection = try server.accept();
-            const thread = try std.Thread.spawn(.{}, _handleClient, .{ self, connection.stream });
+            const connection = server.accept() catch |err| {
+                std.debug.print("server.accept() failed: {any}", .{err});
+            };
+            const thread = std.Thread.spawn(.{}, _handleConnection, .{ self, connection }) catch |err| {
+                std.debug.print("Thread.spawn() failed: {any}", .{err});
+            };
             thread.detach();
         }
     }
 
-    fn _handleClient(self: *Self, stream: net.Stream) void {
-        var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = stream } };
+    fn _handleConnection(self: *Self, connection: net.StreamServer.Connection) void {
+        var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
         ClientFile.handshake(&client) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
             client.closeImmediately();

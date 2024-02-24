@@ -13,6 +13,8 @@
 // limitations under the License.
 
 const std = @import("std");
+const Stream = std.net.Stream;
+const Address = std.net.Address;
 const Allocator = std.mem.Allocator;
 
 const Message = @import("./message.zig").Message;
@@ -20,7 +22,8 @@ const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator = undefined,
-    stream: ?std.net.Stream = null,
+    stream: ?Stream = null,
+    address: ?Address = null,
 
     close_conn: bool = false,
     conn_closed: bool = false,
@@ -31,6 +34,10 @@ pub const Client = struct {
     _private: PrivateFields = undefined,
 
     const Self = @This();
+
+    pub fn getAddress(self: *Self) ?Address {
+        return self._private.address;
+    }
 
     /// Send a "text" message to this client.
     ///
