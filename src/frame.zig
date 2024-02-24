@@ -101,9 +101,9 @@ pub const Frame = struct {
         self._fin = (self.bytes.?[0] & 0b10000000) != 0;
         //std.debug.print("fin: {any}\n", .{self._fin});
 
-        self._rsv1 = self.bytes.?[0] & 0b10000000; // rsv1
-        self._rsv2 = self.bytes.?[0] & 0b01000000; // rsv2
-        self._rsv3 = self.bytes.?[0] & 0b00100000; // rsv3
+        self._rsv1 = self.bytes.?[0] & 0b01000000; // rsv1
+        self._rsv2 = self.bytes.?[0] & 0b00100000; // rsv2
+        self._rsv3 = self.bytes.?[0] & 0b00010000; // rsv3
         //std.debug.print("rsv1: {d}\nrsv2: {d}\nrsv3: {d}\n", .{ self._rsv1, self._rsv2, self._rsv3 });
 
         // Fragmentation is only available on 0-2.
