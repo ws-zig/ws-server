@@ -24,10 +24,7 @@ const PrivateFields = struct {
     addr: ?[]const u8 = null,
     port: u16 = 8080,
 
-    onMessage: Callbacks.ServerOnMessage = null,
-    onClose: Callbacks.ServerOnClose = null,
-    onPing: Callbacks.ServerOnPing = null,
-    onPong: Callbacks.ServerOnPong = null,
+    clientCallbacks: Callbacks.ClientCallbacks = Callbacks.ClientCallbacks{},
 };
 
 pub const Server = struct {
@@ -55,24 +52,20 @@ pub const Server = struct {
         std.debug.print("Listen at {any}\n", .{address.in});
 
         while (true) {
-            const connection = server.accept() catch |err| {
-                std.debug.print("server.accept() failed: {any}", .{err});
-            };
-            const thread = std.Thread.spawn(.{}, _handleConnection, .{ self, connection }) catch |err| {
-                std.debug.print("Thread.spawn() failed: {any}", .{err});
-            };
+            const connection = try server.accept();
+            const thread = try std.Thread.spawn(.{}, _handleConnection, .{ self, connection });
             thread.detach();
         }
     }
 
-    fn _handleConnection(self: *Self, connection: net.StreamServer.Connection) void {
+    fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
         ClientFile.handshake(&client) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
             client.closeImmediately();
             return;
         };
-        ClientFile.handle(&client, self._private.onMessage, self._private.onClose, self._private.onPing, self._private.onPong) catch |err| {
+        ClientFile.handle(&client, &self._private.clientCallbacks) catch |err| {
             std.debug.print("something went wrong: {any}\n", .{err});
         };
     }
@@ -81,15 +74,15 @@ pub const Server = struct {
     ///
     /// ### Example
     /// ```zig
-    /// fn _onMessage(client: *Client, data: []const u8) anyerror!void {
+    /// fn _onText(client: *Client, data: []const u8) anyerror!void {
     ///     // ...
     /// }
     /// // ...
-    /// server.onMessage(&_onMessage);
+    /// server.onText(&_onText);
     /// // ...
     /// ```
-    pub fn onMessage(self: *Self, cb: Callbacks.ServerOnMessage) void {
-        self._private.onMessage = cb;
+    pub fn onText(self: *Self, cb: Callbacks.ClientText) void {
+        self._private.clientCallbacks.text = cb;
     }
 
     /// Set a callback when a "close" message is received from the client.
@@ -103,8 +96,8 @@ pub const Server = struct {
     /// server.onClose(&_onClose);
     /// // ...
     /// ```
-    pub fn onClose(self: *Self, cb: Callbacks.ServerOnClose) void {
-        self._private.onClose = cb;
+    pub fn onClose(self: *Self, cb: Callbacks.ClientClose) void {
+        self._private.clientCallbacks.close = cb;
     }
 
     /// Set a callback when a "ping" message is received from the client.
@@ -118,8 +111,8 @@ pub const Server = struct {
     /// server.onPing(&_onPing);
     /// // ...
     /// ```
-    pub fn onPing(self: *Self, cb: Callbacks.ServerOnPing) void {
-        self._private.onPing = cb;
+    pub fn onPing(self: *Self, cb: Callbacks.ClientPing) void {
+        self._private.clientCallbacks.ping = cb;
     }
 
     /// Set a callback when a "pong" message is received from the client.
@@ -133,7 +126,7 @@ pub const Server = struct {
     /// server.onPong(&_onPong);
     /// // ...
     /// ```
-    pub fn onPong(self: *Self, cb: Callbacks.ServerOnPong) void {
-        self._private.onPong = cb;
+    pub fn onPong(self: *Self, cb: Callbacks.ClientPong) void {
+        self._private.clientCallbacks.pong = cb;
     }
 };

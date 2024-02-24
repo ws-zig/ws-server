@@ -4,8 +4,8 @@ const ws = @import("ws-server");
 const Server = ws.Server;
 const Client = ws.Client;
 
-// When a message has been received from the client, this function is called.
-fn _onMessage(client: *Client, data: []const u8) anyerror!void {
+// When a text message has been received from the client, this function is called.
+fn _onText(client: *Client, data: []const u8) anyerror!void {
     std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
     try client.sendText("Hello client! :)");
 }
@@ -34,7 +34,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
-    server.onMessage(&_onMessage);
+    server.onText(&_onText);
     server.onClose(&_onClose);
     server.onPing(&_onPing);
     server.onPong(&_onPong);

@@ -96,8 +96,12 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callbacks.ServerOnClose, onPing: Callbacks.ServerOnPing, onPong: Callbacks.ServerOnPong) !void {
+pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
     var message: ?Message = null;
+    defer if (message != null) {
+        message.?.deinit();
+        message = null;
+    };
 
     while (self._private.close_conn == false) {
         var buffer: [65535]u8 = undefined;
@@ -121,8 +125,8 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
 
         // The client sends us a "close" message, so he wants to disconnect properly.
         if (message.?.isClose() == true) {
-            if (onClose != null) {
-                onClose.?(self) catch |err| {
+            if (cbs.close != null) {
+                cbs.close.?(self) catch |err| {
                     std.debug.print("onClose() failed: {any}\n", .{err});
                 };
             }
@@ -130,16 +134,16 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
         }
         // "Hello server, are you there?"
         if (message.?.isPing() == true) {
-            if (onPing != null) {
-                onPing.?(self) catch |err| {
+            if (cbs.ping != null) {
+                cbs.ping.?(self) catch |err| {
                     std.debug.print("onPing() failed: {any}\n", .{err});
                 };
             }
         }
         // "Hello server, here I am"
         else if (message.?.isPong() == true) {
-            if (onPong != null) {
-                onPong.?(self) catch |err| {
+            if (cbs.pong != null) {
+                cbs.pong.?(self) catch |err| {
                     std.debug.print("onPong() failed: {any}\n", .{err});
                 };
             }
@@ -147,8 +151,8 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
         // Process received message...
         else {
             const message_data = message.?.get().*;
-            if (onMsg != null and message_data != null) {
-                onMsg.?(self, message_data.?) catch |err| {
+            if (cbs.text != null and message_data != null) {
+                cbs.text.?(self, message_data.?) catch |err| {
                     std.debug.print("onMessage() failed: {any}\n", .{err});
                 };
             }
@@ -156,12 +160,6 @@ pub fn handle(self: *Client, onMsg: Callbacks.ServerOnMessage, onClose: Callback
 
         // We need to deinitialize the message and set the value to `null`,
         // otherwise the next loop will not create a new message and write the new data into the old message.
-        message.?.deinit();
-        message = null;
-    }
-
-    // If the message is not `null`, we want to free the allocated memory.
-    if (message != null) {
         message.?.deinit();
         message = null;
     }
