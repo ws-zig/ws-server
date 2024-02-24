@@ -1,10 +1,4 @@
-| :warning: The current status is not production ready! A lot can still change before the first version! |
-| --- |
-
-**Tested version of Zig:** 0.11.0
-
-**IMPORTANT:**
-This is my first project in the Zig programming language. The focus is on the server, a client is planned for the future.
+A simple WebSocket server for the Zig(-lang) programming language. Feel free to contribute and improve this implementation.
 
 ## Installation
 - [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).
@@ -34,7 +28,7 @@ This is my first project in the Zig programming language. The focus is on the se
 
 ## Example
 ### Server:
-This little example starts a server on port `8080` and sends `Hello!` to the client, whenever a message arrives.
+This little example starts a server on port `8080` and sends `Hello!` to the client, whenever a text message arrives.
 ```zig
 const std = @import("std");
 
@@ -42,7 +36,7 @@ const ws = @import("ws-server");
 const Server = ws.Server;
 const Client = ws.Client;
 
-fn _onMessage(client: *Client, data: []const u8) anyerror!void {
+fn _onText(client: *Client, data: []const u8) anyerror!void {
     std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
     try client.sendText("Hello!");
 }
@@ -53,7 +47,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
-    server.onMessage(&_onMessage);
+    server.onText(&_onText);
     try server.listen();
 }
 ```
