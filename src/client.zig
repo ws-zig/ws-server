@@ -164,6 +164,12 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
         message = null;
     }
 
+    if (cbs.disconnect != null) {
+        cbs.disconnect.?(self) catch |err| {
+            std.debug.print("onDisconnect() failed: {any}\n", .{err});
+        };
+    }
+
     if (self._private.close_conn == false) {
         self._deinit();
     }

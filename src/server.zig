@@ -60,14 +60,26 @@ pub const Server = struct {
 
     fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
-        ClientFile.handshake(&client) catch |err| {
+        const handshake_result = ClientFile.handshake(&client, self._private.clientCallbacks.handshake) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
             client.closeImmediately();
             return;
         };
+        if (handshake_result == false) {
+            client.closeImmediately();
+            return;
+        }
         ClientFile.handle(&client, &self._private.clientCallbacks) catch |err| {
             std.debug.print("something went wrong: {any}\n", .{err});
         };
+    }
+
+    pub fn onHandshake(self: *Self, cb: Callbacks.ClientHandshake) void {
+        self._private.clientCallbacks.handshake = cb;
+    }
+
+    pub fn onDisconnect(self: *Self, cb: Callbacks.ClientDisconnect) void {
+        self._private.clientCallbacks.disconnect = cb;
     }
 
     /// Set a callback when a "text" message is received from the client.

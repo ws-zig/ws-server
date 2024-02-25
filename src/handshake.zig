@@ -19,11 +19,12 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const Client = @import("./client.zig").Client;
+const Callbacks = @import("./callbacks.zig");
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-pub fn handle(self: *Client) !void {
+pub fn handle(self: *Client, cb: Callbacks.ClientHandshake) !bool {
     if (self._private.allocator == undefined) {
         return error.MissingAllocator;
     }
@@ -35,6 +36,16 @@ pub fn handle(self: *Client) !void {
 
     var headers = try _getHeaders(self._private.allocator, self._private.stream.?);
     defer headers.deinit();
+
+    if (cb != null) {
+        const cb_result = cb.?(self, &headers) catch |err| {
+            std.debug.print("onHandshake() failed: {any}\n", .{err});
+            return false;
+        };
+        if (cb_result == false) {
+            return false;
+        }
+    }
 
     const header_version = headers.get("version").?;
     var header_key: []const u8 = undefined;
@@ -66,6 +77,8 @@ pub fn handle(self: *Client) !void {
 
     //std.debug.print("=== send header ===\n{s}\n", .{header_result});
     try self._private.stream.?.writer().writeAll(header_result);
+
+    return true;
 }
 
 fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringHashMap([]const u8) {

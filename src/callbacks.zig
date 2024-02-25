@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const std = @import("std");
 const Client = @import("./client.zig").Client;
+
+pub const ClientHandshake = ?*const fn (client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool;
+pub const ClientDisconnect = ?*const fn (client: *Client) anyerror!void;
 
 pub const ClientText = ?*const fn (client: *Client, data: []const u8) anyerror!void;
 pub const ClientClose = ?*const fn (client: *Client) anyerror!void;
@@ -20,6 +24,9 @@ pub const ClientPing = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPong = ?*const fn (client: *Client) anyerror!void;
 
 pub const ClientCallbacks = struct {
+    handshake: ClientHandshake = null,
+    disconnect: ClientDisconnect = null,
+
     text: ClientText = null,
     close: ClientClose = null,
     ping: ClientPing = null,
