@@ -15,20 +15,123 @@
 const std = @import("std");
 const Client = @import("./client.zig").Client;
 
-pub const ClientHandshake = ?*const fn (client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool;
-pub const ClientDisconnect = ?*const fn (client: *Client) anyerror!void;
+pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool;
+pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
+pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void;
 
-pub const ClientText = ?*const fn (client: *Client, data: []const u8) anyerror!void;
-pub const ClientClose = ?*const fn (client: *Client) anyerror!void;
-pub const ClientPing = ?*const fn (client: *Client) anyerror!void;
-pub const ClientPong = ?*const fn (client: *Client) anyerror!void;
+pub const ClientTextFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
+pub const ClientCloseFn = ?*const fn (client: *Client) anyerror!void;
+pub const ClientPingFn = ?*const fn (client: *Client) anyerror!void;
+pub const ClientPongFn = ?*const fn (client: *Client) anyerror!void;
 
 pub const ClientCallbacks = struct {
-    handshake: ClientHandshake = null,
-    disconnect: ClientDisconnect = null,
+    handshake: ClientHandshake = ClientHandshake{},
+    disconnect: ClientDisconnect = ClientDisconnect{},
+    error_: ClientError = ClientError{},
 
-    text: ClientText = null,
-    close: ClientClose = null,
-    ping: ClientPing = null,
-    pong: ClientPong = null,
+    text: ClientText = ClientText{},
+    close: ClientClose = ClientClose{},
+    ping: ClientPing = ClientPing{},
+    pong: ClientPong = ClientPong{},
+};
+
+const ClientHandshake = struct {
+    handler: ClientHandshakeFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client, headers: *std.StringHashMap([]const u8)) bool {
+        if (self.handler != null) {
+            const cb_result = self.handler.?(client, headers) catch |err| {
+                std.debug.print("onHandshake() failed: {any}", .{err});
+                return false;
+            };
+            return cb_result;
+        }
+        return true;
+    }
+};
+
+const ClientDisconnect = struct {
+    handler: ClientDisconnectFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client) void {
+        if (self.handler != null) {
+            self.handler.?(client) catch |err| {
+                std.debug.print("onDisconnect() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientError = struct {
+    handler: ClientErrorFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client, type_: anyerror, data: ?[]const u8) void {
+        if (self.handler != null) {
+            self.handler.?(client, type_, data) catch |err| {
+                std.debug.print("onError() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientText = struct {
+    handler: ClientTextFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client, data: []const u8) void {
+        if (self.handler != null) {
+            self.handler.?(client, data) catch |err| {
+                std.debug.print("onText() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientClose = struct {
+    handler: ClientCloseFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client) void {
+        if (self.handler != null) {
+            self.handler.?(client) catch |err| {
+                std.debug.print("onClose() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientPing = struct {
+    handler: ClientPingFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client) void {
+        if (self.handler != null) {
+            self.handler.?(client) catch |err| {
+                std.debug.print("onPing() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientPong = struct {
+    handler: ClientPongFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client) void {
+        if (self.handler != null) {
+            self.handler.?(client) catch |err| {
+                std.debug.print("onPong() failed: {any}", .{err});
+            };
+        }
+    }
 };

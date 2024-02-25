@@ -24,7 +24,7 @@ const Callbacks = @import("./callbacks.zig");
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-pub fn handle(self: *Client, cb: Callbacks.ClientHandshake) !bool {
+pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !bool {
     if (self._private.allocator == undefined) {
         return error.MissingAllocator;
     }
@@ -37,14 +37,8 @@ pub fn handle(self: *Client, cb: Callbacks.ClientHandshake) !bool {
     var headers = try _getHeaders(self._private.allocator, self._private.stream.?);
     defer headers.deinit();
 
-    if (cb != null) {
-        const cb_result = cb.?(self, &headers) catch |err| {
-            std.debug.print("onHandshake() failed: {any}\n", .{err});
-            return false;
-        };
-        if (cb_result == false) {
-            return false;
-        }
+    if (cbs.handshake.handle(self, &headers) == false) {
+        return false;
     }
 
     const header_version = headers.get("version").?;

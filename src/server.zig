@@ -60,7 +60,7 @@ pub const Server = struct {
 
     fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
-        const handshake_result = ClientFile.handshake(&client, self._private.clientCallbacks.handshake) catch |err| {
+        const handshake_result = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
             std.debug.print("Handshake failed: {any}\n", .{err});
             client.closeImmediately();
             return;
@@ -74,12 +74,51 @@ pub const Server = struct {
         };
     }
 
-    pub fn onHandshake(self: *Self, cb: Callbacks.ClientHandshake) void {
-        self._private.clientCallbacks.handshake = cb;
+    /// This function is called whenever a new connection to the server is established.
+    ///
+    /// **IMPORTANT:** Return `false` and the connection will be closed immediately.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onHandshake(&_onHandshake);
+    /// // ...
+    /// ```
+    pub fn onHandshake(self: *Self, cb: Callbacks.ClientHandshakeFn) void {
+        self._private.clientCallbacks.handshake.handler = cb;
     }
 
-    pub fn onDisconnect(self: *Self, cb: Callbacks.ClientDisconnect) void {
-        self._private.clientCallbacks.disconnect = cb;
+    /// This function is always called shortly before the connection to the client is closed.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onDisconnect(client: *Client) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onDisconnect(&_onDisconnect);
+    /// // ...
+    /// ```
+    pub fn onDisconnect(self: *Self, cb: Callbacks.ClientDisconnectFn) void {
+        self._private.clientCallbacks.disconnect.handler = cb;
+    }
+
+    /// This function is called whenever an unexpected error occurs.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onError(client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onError(&_onError);
+    /// // ...
+    /// ```
+    pub fn onError(self: *Self, cb: Callbacks.ClientErrorFn) void {
+        self._private.clientCallbacks.error_.handler = cb;
     }
 
     /// Set a callback when a "text" message is received from the client.
@@ -93,8 +132,8 @@ pub const Server = struct {
     /// server.onText(&_onText);
     /// // ...
     /// ```
-    pub fn onText(self: *Self, cb: Callbacks.ClientText) void {
-        self._private.clientCallbacks.text = cb;
+    pub fn onText(self: *Self, cb: Callbacks.ClientTextFn) void {
+        self._private.clientCallbacks.text.handler = cb;
     }
 
     /// Set a callback when a "close" message is received from the client.
@@ -108,8 +147,8 @@ pub const Server = struct {
     /// server.onClose(&_onClose);
     /// // ...
     /// ```
-    pub fn onClose(self: *Self, cb: Callbacks.ClientClose) void {
-        self._private.clientCallbacks.close = cb;
+    pub fn onClose(self: *Self, cb: Callbacks.ClientCloseFn) void {
+        self._private.clientCallbacks.close.handler = cb;
     }
 
     /// Set a callback when a "ping" message is received from the client.
@@ -123,8 +162,8 @@ pub const Server = struct {
     /// server.onPing(&_onPing);
     /// // ...
     /// ```
-    pub fn onPing(self: *Self, cb: Callbacks.ClientPing) void {
-        self._private.clientCallbacks.ping = cb;
+    pub fn onPing(self: *Self, cb: Callbacks.ClientPingFn) void {
+        self._private.clientCallbacks.ping.handler = cb;
     }
 
     /// Set a callback when a "pong" message is received from the client.
@@ -138,7 +177,7 @@ pub const Server = struct {
     /// server.onPong(&_onPong);
     /// // ...
     /// ```
-    pub fn onPong(self: *Self, cb: Callbacks.ClientPong) void {
-        self._private.clientCallbacks.pong = cb;
+    pub fn onPong(self: *Self, cb: Callbacks.ClientPongFn) void {
+        self._private.clientCallbacks.pong.handler = cb;
     }
 };

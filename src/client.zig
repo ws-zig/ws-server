@@ -106,7 +106,7 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
     while (self._private.close_conn == false) {
         var buffer: [65535]u8 = undefined;
         const buffer_len = self._private.stream.?.read(&buffer) catch |err| {
-            std.debug.print("Failed to read buffer: {any}\n", .{err});
+            cbs.error_.handle(self, err, null);
             break;
         };
 
@@ -114,7 +114,7 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
             message = Message{ .allocator = self._private.allocator };
         }
         message.?.read(buffer[0..buffer_len]) catch |err| {
-            std.debug.print("message.read() failed: {any}\n", .{err});
+            cbs.error_.handle(self, err, null);
             break;
         };
 
@@ -125,37 +125,20 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
 
         // The client sends us a "close" message, so he wants to disconnect properly.
         if (message.?.isClose() == true) {
-            if (cbs.close != null) {
-                cbs.close.?(self) catch |err| {
-                    std.debug.print("onClose() failed: {any}\n", .{err});
-                };
-            }
+            cbs.close.handle(self);
             break;
         }
         // "Hello server, are you there?"
         if (message.?.isPing() == true) {
-            if (cbs.ping != null) {
-                cbs.ping.?(self) catch |err| {
-                    std.debug.print("onPing() failed: {any}\n", .{err});
-                };
-            }
+            cbs.ping.handle(self);
         }
         // "Hello server, here I am"
         else if (message.?.isPong() == true) {
-            if (cbs.pong != null) {
-                cbs.pong.?(self) catch |err| {
-                    std.debug.print("onPong() failed: {any}\n", .{err});
-                };
-            }
+            cbs.pong.handle(self);
         }
         // Process received message...
         else {
-            const message_data = message.?.get().*;
-            if (cbs.text != null and message_data != null) {
-                cbs.text.?(self, message_data.?) catch |err| {
-                    std.debug.print("onMessage() failed: {any}\n", .{err});
-                };
-            }
+            cbs.text.handle(self, message.?.get().*.?);
         }
 
         // We need to deinitialize the message and set the value to `null`,
@@ -164,11 +147,7 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
         message = null;
     }
 
-    if (cbs.disconnect != null) {
-        cbs.disconnect.?(self) catch |err| {
-            std.debug.print("onDisconnect() failed: {any}\n", .{err});
-        };
-    }
+    cbs.disconnect.handle(self);
 
     if (self._private.close_conn == false) {
         self._deinit();
