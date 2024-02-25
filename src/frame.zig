@@ -48,16 +48,6 @@ const Allocator = std.mem.Allocator;
 
 pub const FrameError = error{ Unknown, OutOfMemory, MissingAllocator, MissingBytes, TooManyBytes };
 
-pub const Opcode = enum(u8) {
-    Continue = 0,
-    Text = 1,
-    Binary = 2,
-
-    Close = 8,
-    Ping = 9,
-    Pong = 10,
-};
-
 pub const Frame = struct {
     allocator: *const Allocator = undefined,
     bytes: ?[]const u8 = null,
@@ -78,8 +68,8 @@ pub const Frame = struct {
         return self._fin;
     }
 
-    pub fn getOpcode(self: *Self) Opcode {
-        return @enumFromInt(self._opcode);
+    pub fn getOpcode(self: *Self) u8 {
+        return self._opcode;
     }
 
     pub fn read(self: *Self) FrameError!*[]u8 {
@@ -107,7 +97,7 @@ pub const Frame = struct {
         //std.debug.print("rsv1: {d}\nrsv2: {d}\nrsv3: {d}\n", .{ self._rsv1, self._rsv2, self._rsv3 });
 
         // Fragmentation is only available on 0-2.
-        // 0 = continue; 1 = text; 2 = binary; 9 = ping; 10 = pong
+        // 0 = continue; 1 = text; 2 = binary; 8 = close; 9 = ping; 10 = pong
         self._opcode = self.bytes.?[0] & 0b00001111;
         //std.debug.print("opcode: {d}\n", .{self._opcode});
 
@@ -141,27 +131,27 @@ pub const Frame = struct {
         }
     }
 
-    pub fn write(self: *Self, opcode: Opcode) FrameError!*[]u8 {
+    pub fn write(self: *Self, opcode: u8) FrameError!*[]u8 {
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        extra_data[0] = @intFromEnum(opcode) | 0b10000000;
+        extra_data[0] = opcode | 0b10000000;
         if (self.bytes.?.len <= 125) {
             extra_data[1] = @intCast(self.bytes.?.len);
             extra_len += 2;
         } else if (self.bytes.?.len <= 65531) {
             extra_data[1] = 126;
-            extra_data[2] = @intCast((self.bytes.?.len >> 8 & 0b11111111));
+            extra_data[2] = @intCast(self.bytes.?.len >> 8 & 0b11111111);
             extra_data[3] = @intCast(self.bytes.?.len & 0b11111111);
             extra_len += 4;
         } else {
             extra_data[1] = 127;
-            extra_data[2] = @intCast((self.bytes.?.len >> 56 & 0b11111111));
-            extra_data[3] = @intCast((self.bytes.?.len >> 48 & 0b11111111));
-            extra_data[4] = @intCast((self.bytes.?.len >> 40 & 0b11111111));
-            extra_data[5] = @intCast((self.bytes.?.len >> 32 & 0b11111111));
-            extra_data[6] = @intCast((self.bytes.?.len >> 24 & 0b11111111));
-            extra_data[7] = @intCast((self.bytes.?.len >> 16 & 0b11111111));
-            extra_data[8] = @intCast((self.bytes.?.len >> 8 & 0b11111111));
+            extra_data[2] = @intCast(self.bytes.?.len >> 56 & 0b11111111);
+            extra_data[3] = @intCast(self.bytes.?.len >> 48 & 0b11111111);
+            extra_data[4] = @intCast(self.bytes.?.len >> 40 & 0b11111111);
+            extra_data[5] = @intCast(self.bytes.?.len >> 32 & 0b11111111);
+            extra_data[6] = @intCast(self.bytes.?.len >> 24 & 0b11111111);
+            extra_data[7] = @intCast(self.bytes.?.len >> 16 & 0b11111111);
+            extra_data[8] = @intCast(self.bytes.?.len >> 8 & 0b11111111);
             extra_data[9] = @intCast(self.bytes.?.len & 0b11111111);
             extra_len += 10;
         }

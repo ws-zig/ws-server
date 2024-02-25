@@ -17,7 +17,9 @@ const Stream = std.net.Stream;
 const Address = std.net.Address;
 const Allocator = std.mem.Allocator;
 
-const Message = @import("./message.zig").Message;
+const MessageFile = @import("./message.zig");
+const Message = MessageFile.Message;
+const MessageType = MessageFile.Type;
 const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
@@ -103,7 +105,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
         message = null;
     };
 
-    while (self._private.close_conn == false) {
+    messageLoop: while (self._private.close_conn == false) {
         var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
         defer self._private.allocator.free(buffer);
         const buffer_len = self._private.stream.?.read(buffer) catch |err| {
@@ -124,22 +126,30 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
             continue;
         }
 
-        // The client sends us a "close" message, so he wants to disconnect properly.
-        if (message.?.isClose() == true) {
-            cbs.close.handle(self);
-            break;
-        }
-        // "Hello server, are you there?"
-        if (message.?.isPing() == true) {
-            cbs.ping.handle(self);
-        }
-        // "Hello server, here I am"
-        else if (message.?.isPong() == true) {
-            cbs.pong.handle(self);
-        }
-        // Process received message...
-        else {
-            cbs.text.handle(self, message.?.get().*.?);
+        switch (message.?.getType()) {
+            MessageType.Unknown => {
+                cbs.error_.handle(self, error.UnkownMessageType, "The type of message received is unknown");
+                break :messageLoop;
+            },
+            MessageType.Continue => { // We are waiting for more data...
+                continue :messageLoop;
+            },
+            MessageType.Text => { // Process received text message...
+                cbs.text.handle(self, message.?.get().*.?);
+            },
+            MessageType.Binary => { // Process received binary message...
+                cbs.text.handle(self, message.?.get().*.?);
+            },
+            MessageType.Close => { // The client sends us a "close" message, so he wants to disconnect properly.
+                cbs.close.handle(self);
+                break :messageLoop;
+            },
+            MessageType.Ping => { // "Hello server, are you there?"
+                cbs.ping.handle(self);
+            },
+            MessageType.Pong => { // "Hello server, here I am"
+                cbs.pong.handle(self);
+            },
         }
 
         // We need to deinitialize the message and set the value to `null`,
