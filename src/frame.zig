@@ -69,7 +69,7 @@ pub const Frame = struct {
     _opcode: u8 = 0,
     _masked: bool = false,
 
-    _payload_len: u16 = 0,
+    _payload_len: u64 = 0,
     _payload_data: ?[]u8 = null,
 
     const Self = @This();
@@ -119,22 +119,22 @@ pub const Frame = struct {
     }
 
     fn _parsePayload(self: *Self) !void {
-        var extra_len: u8 = 0;
+        var extra_len: u8 = 2;
         if (self._payload_len == 126) {
             self._payload_len = @intCast(@as(u16, self.bytes.?[2]) << 8 | self.bytes.?[3]);
             extra_len += 2;
-        } else if (self._payload_len > 126) {
-            self._payload_len = @intCast(@as(u32, self.bytes.?[2]) << 24 | @as(u32, self.bytes.?[3]) << 16 | @as(u32, self.bytes.?[4]) << 8 | self.bytes.?[5]);
-            extra_len += 4;
+        } else if (self._payload_len == 127) {
+            self._payload_len = @intCast(@as(u64, self.bytes.?[2]) << 56 | @as(u64, self.bytes.?[3]) << 48 | @as(u64, self.bytes.?[4]) << 40 | @as(u64, self.bytes.?[5]) << 32 | @as(u64, self.bytes.?[6]) << 24 | @as(u64, self.bytes.?[7]) << 16 | @as(u64, self.bytes.?[8]) << 8 | self.bytes.?[9]);
+            extra_len += 8;
         }
 
         var masking_key: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
         if (self._masked == true) {
-            masking_key = self.bytes.?[(2 + extra_len)..(6 + extra_len)][0..4].*;
+            masking_key = self.bytes.?[extra_len..(4 + extra_len)][0..4].*;
         }
 
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
-        @memcpy(self._payload_data.?, self.bytes.?[(6 + extra_len)..(6 + extra_len + self._payload_len)]);
+        @memcpy(self._payload_data.?, self.bytes.?[(4 + extra_len)..(4 + extra_len + self._payload_len)]);
 
         for (self._payload_data.?, 0..) |v, i| {
             self._payload_data.?[i] = (v ^ masking_key[i % 4]);
@@ -143,7 +143,7 @@ pub const Frame = struct {
 
     pub fn write(self: *Self, opcode: Opcode) FrameError!*[]u8 {
         var extra_len: u8 = 0;
-        var extra_data: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
+        var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         extra_data[0] = @intFromEnum(opcode) | 0b10000000;
         if (self.bytes.?.len <= 125) {
             extra_data[1] = @intCast(self.bytes.?.len);
@@ -153,8 +153,17 @@ pub const Frame = struct {
             extra_data[2] = @intCast((self.bytes.?.len >> 8 & 0b11111111));
             extra_data[3] = @intCast(self.bytes.?.len & 0b11111111);
             extra_len += 4;
-        } else { // Don't send more data than we can receive
-            return FrameError.TooManyBytes;
+        } else {
+            extra_data[1] = 127;
+            extra_data[2] = @intCast((self.bytes.?.len >> 56 & 0b11111111));
+            extra_data[3] = @intCast((self.bytes.?.len >> 48 & 0b11111111));
+            extra_data[4] = @intCast((self.bytes.?.len >> 40 & 0b11111111));
+            extra_data[5] = @intCast((self.bytes.?.len >> 32 & 0b11111111));
+            extra_data[6] = @intCast((self.bytes.?.len >> 24 & 0b11111111));
+            extra_data[7] = @intCast((self.bytes.?.len >> 16 & 0b11111111));
+            extra_data[8] = @intCast((self.bytes.?.len >> 8 & 0b11111111));
+            extra_data[9] = @intCast(self.bytes.?.len & 0b11111111);
+            extra_len += 10;
         }
         self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.?.len);
         @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);

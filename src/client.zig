@@ -96,7 +96,7 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
+pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) !void {
     var message: ?Message = null;
     defer if (message != null) {
         message.?.deinit();
@@ -104,8 +104,9 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !void {
     };
 
     while (self._private.close_conn == false) {
-        var buffer: [65535]u8 = undefined;
-        const buffer_len = self._private.stream.?.read(&buffer) catch |err| {
+        var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
+        defer self._private.allocator.free(buffer);
+        const buffer_len = self._private.stream.?.read(buffer) catch |err| {
             cbs.error_.handle(self, err, null);
             break;
         };

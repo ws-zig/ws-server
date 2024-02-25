@@ -24,7 +24,13 @@ const PrivateFields = struct {
     addr: ?[]const u8 = null,
     port: u16 = 8080,
 
+    config: ServerConfig = ServerConfig{},
+
     clientCallbacks: Callbacks.ClientCallbacks = Callbacks.ClientCallbacks{},
+};
+
+pub const ServerConfig = struct {
+    buffer_size: u32 = 65535,
 };
 
 pub const Server = struct {
@@ -35,6 +41,10 @@ pub const Server = struct {
 
     pub fn create(allocator: *const Allocator, addr: []const u8, port: u16) Self {
         return Self{ ._private = .{ .allocator = allocator, .addr = addr, .port = port } };
+    }
+
+    pub fn setConfig(self: *Self, config: ServerConfig) void {
+        self._private.config = config;
     }
 
     pub fn listen(self: *Self) !void {
@@ -49,7 +59,6 @@ pub const Server = struct {
         var server = net.StreamServer.init(.{});
         defer server.deinit();
         try server.listen(address);
-        std.debug.print("Listen at {any}\n", .{address.in});
 
         while (true) {
             const connection = try server.accept();
@@ -69,7 +78,7 @@ pub const Server = struct {
             client.closeImmediately();
             return;
         }
-        ClientFile.handle(&client, &self._private.clientCallbacks) catch |err| {
+        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks) catch |err| {
             std.debug.print("something went wrong: {any}\n", .{err});
         };
     }
