@@ -70,7 +70,7 @@ pub const Server = struct {
     fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
         const handshake_result = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
-            self._private.clientCallbacks.error_.handle(&client, err, null);
+            self._private.clientCallbacks.error_.handle(&client, err, @src());
             client.closeImmediately();
             return;
         };

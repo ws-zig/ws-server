@@ -137,7 +137,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
         var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
         defer self._private.allocator.free(buffer);
         const buffer_len = self._private.stream.?.read(buffer) catch |err| {
-            cbs.error_.handle(self, err, null);
+            cbs.error_.handle(self, err, @src());
             break;
         };
 
@@ -145,7 +145,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
             message = Message{ .allocator = self._private.allocator };
         }
         message.?.read(buffer[0..buffer_len]) catch |err| {
-            cbs.error_.handle(self, err, null);
+            cbs.error_.handle(self, err, @src());
             break;
         };
 
@@ -156,7 +156,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
 
         switch (message.?.getType()) {
             MessageType.Unknown => {
-                cbs.error_.handle(self, error.UnkownMessageType, "The type of message received is unknown");
+                cbs.error_.handle(self, error.UnkownMessageType, @src());
                 break :messageLoop;
             },
             MessageType.Continue => { // We are waiting for more data...

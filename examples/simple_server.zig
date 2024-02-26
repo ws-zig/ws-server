@@ -1,4 +1,5 @@
 const std = @import("std");
+const SourceLocation = std.builtin.SourceLocation;
 
 const ws = @import("ws-server");
 const Server = ws.Server;
@@ -15,8 +16,8 @@ fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerr
 
 // If something went wrong unexpectedly, you can use this function to view some details of the error.
 // After this function call, the connection to the client is immediately terminated.
-fn _onError(client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void {
-    std.debug.print("[{any}] from `{any}`: {s}", .{ type_, client.getAddress().?, data orelse "" });
+fn _onError(client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void {
+    std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}", .{ type_, client.getAddress().?, loc.file, loc.fn_name, loc.line, loc.column });
 }
 
 // When the incoming message loop breaks and the client disconnects, this function is called.

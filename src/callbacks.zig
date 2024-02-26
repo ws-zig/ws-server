@@ -13,11 +13,13 @@
 // limitations under the License.
 
 const std = @import("std");
+const SourceLocation = std.builtin.SourceLocation;
+
 const Client = @import("./client.zig").Client;
 
 pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool;
 pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
-pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void;
+pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
 
 pub const ClientTextFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
 pub const ClientCloseFn = ?*const fn (client: *Client) anyerror!void;
@@ -71,9 +73,9 @@ const ClientError = struct {
 
     const Self = @This();
 
-    pub fn handle(self: *const Self, client: *Client, type_: anyerror, data: ?[]const u8) void {
+    pub fn handle(self: *const Self, client: *Client, type_: anyerror, loc: SourceLocation) void {
         if (self.handler != null) {
-            self.handler.?(client, type_, data) catch |err| {
+            self.handler.?(client, type_, loc) catch |err| {
                 std.debug.print("onError() failed: {any}", .{err});
             };
         }
