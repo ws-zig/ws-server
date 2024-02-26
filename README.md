@@ -1,5 +1,11 @@
 A simple WebSocket server for the Zig(-lang) programming language. Feel free to contribute and improve this implementation.
 
+> [!NOTE]
+> The current Zig(-lang) version **0.11.0** is supported.
+
+> [!TIP]
+> Documentation can be found in the source code of our [examples](https://github.com/ws-zig/ws-server/tree/main/examples).
+
 ## Installation
 - [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).
 - Unzip the folder somewhere.
@@ -37,11 +43,11 @@ const Server = ws.Server;
 const Client = ws.Client;
 
 fn _onText(client: *Client, data: []const u8) anyerror!void {
-    std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
+    std.debug.print("{s}\n", .{data});
     try client.sendText("Hello!");
 }
 
-pub fn main() !void {
+pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
@@ -59,24 +65,13 @@ const { WebSocket } = require('ws');
 const client = new WebSocket("ws://127.0.0.1:8080");
 
 client.on('open', () => {
-  console.log("CONNECTED!");
   client.send("Hello server!");
 });
 
 client.on('message', (msg) => {
   console.log(msg.toString());
 });
-
-client.on('error', (err) => {
-  console.error("ERROR: ", err);
-  console.error("rawPacket: ", err.rawPacket?.toString());
-});
-
-client.on('close', () => {
-  console.log("DISCONNECTED!");
-});
 ```
 
 ### Result:
-
-![Screenshot 2024-02-22 102939](https://github.com/ws-zig/ws-server/assets/154023155/55639635-574b-4a82-a020-7809f2eae31f)
+![image](https://github.com/ws-zig/ws-server/assets/154023155/a2dfc154-765e-4601-b8b4-4d62a0a7e19b)
