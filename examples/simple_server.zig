@@ -13,6 +13,12 @@ fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerr
     return true;
 }
 
+// If something went wrong unexpectedly, you can use this function to view some details of the error.
+// After this function call, the connection to the client is immediately terminated.
+fn _onError(client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void {
+    std.debug.print("[{any}] from `{any}`: {s}", .{ type_, client.getAddress().?, data orelse "" });
+}
+
 // When the incoming message loop breaks and the client disconnects, this function is called.
 fn _onDisconnect(client: *Client) anyerror!void {
     std.debug.print("Client ({any}) disconnected!\n", .{client.getAddress().?});
@@ -42,14 +48,18 @@ fn _onPong(_: *Client) anyerror!void {
     // There's nothing to do here.
 }
 
-pub fn main() !void {
+pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
+    server.setConfig(.{
+        .buffer_size = 1024,
+    });
     server.onHandshake(&_onHandshake);
     server.onDisconnect(&_onDisconnect);
+    server.onError(&_onError);
     server.onText(&_onText);
     server.onClose(&_onClose);
     server.onPing(&_onPing);
