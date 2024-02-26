@@ -31,6 +31,12 @@ fn _onText(client: *Client, data: []const u8) anyerror!void {
     try client.sendText("Hello client! :)");
 }
 
+// When a binary message has been received from the client, this function is called.
+fn _onBinary(client: *Client, data: []const u8) anyerror!void {
+    std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
+    try client.sendBinary("Hello client! :)");
+}
+
 // When the client has properly closed the connection with a message, this function is called.
 fn _onClose(client: *Client) anyerror!void {
     std.debug.print("CLOSE RECEIVED!\n", .{});
@@ -62,6 +68,7 @@ pub fn main() anyerror!void {
     server.onDisconnect(&_onDisconnect);
     server.onError(&_onError);
     server.onText(&_onText);
+    server.onBinary(&_onBinary);
     server.onClose(&_onClose);
     server.onPing(&_onPing);
     server.onPong(&_onPong);

@@ -109,6 +109,11 @@ pub const Message = struct {
         try self._write(data);
     }
 
+    pub fn writeBinary(self: *Self, data: []const u8) anyerror!void {
+        self._type = Type.Binary;
+        try self._write(data);
+    }
+
     pub fn writeClose(self: *Self) anyerror!void {
         self._type = Type.Close;
         try self._write("");

@@ -145,6 +145,21 @@ pub const Server = struct {
         self._private.clientCallbacks.text.handler = cb;
     }
 
+    /// Set a callback when a "binary" message is received from the client.
+    ///
+    /// ### Example
+    /// ```zig
+    /// fn _onBinary(client: *Client, data: []const u8) anyerror!void {
+    ///     // ...
+    /// }
+    /// // ...
+    /// server.onBinary(&_onBinary);
+    /// // ...
+    /// ```
+    pub fn onBinary(self: *Self, cb: Callbacks.ClientBinaryFn) void {
+        self._private.clientCallbacks.binary.handler = cb;
+    }
+
     /// Set a callback when a "close" message is received from the client.
     ///
     /// ### Example

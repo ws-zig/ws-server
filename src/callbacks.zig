@@ -22,6 +22,7 @@ pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
 
 pub const ClientTextFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
+pub const ClientBinaryFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
 pub const ClientCloseFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPingFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPongFn = ?*const fn (client: *Client) anyerror!void;
@@ -32,6 +33,7 @@ pub const ClientCallbacks = struct {
     error_: ClientError = ClientError{},
 
     text: ClientText = ClientText{},
+    binary: ClientBinary = ClientBinary{},
     close: ClientClose = ClientClose{},
     ping: ClientPing = ClientPing{},
     pong: ClientPong = ClientPong{},
@@ -91,6 +93,20 @@ const ClientText = struct {
         if (self.handler != null) {
             self.handler.?(client, data) catch |err| {
                 std.debug.print("onText() failed: {any}", .{err});
+            };
+        }
+    }
+};
+
+const ClientBinary = struct {
+    handler: ClientBinaryFn = null,
+
+    const Self = @This();
+
+    pub fn handle(self: *const Self, client: *Client, data: []const u8) void {
+        if (self.handler != null) {
+            self.handler.?(client, data) catch |err| {
+                std.debug.print("onBinary() failed: {any}", .{err});
             };
         }
     }
