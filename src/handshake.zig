@@ -23,15 +23,9 @@ const Callbacks = @import("./callbacks.zig");
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const RESPONSE_BASIC = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
 
-pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !bool {
-    if (self._private.allocator == undefined) {
-        return error.MissingAllocator;
-    }
-    if (self._private.stream == null) {
-        return error.MissingStream;
-    }
-
+pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
     //std.debug.print("=== handshake ===\n", .{});
 
     var headers = try _getHeaders(self._private.allocator, self._private.stream.?);
@@ -42,40 +36,36 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) !bool {
     }
 
     const header_version = headers.get("version").?;
-    var header_key: []const u8 = undefined;
-    if (headers.get("Sec-WebSocket-Key")) |v| {
-        header_key = v;
-    } else {
-        return error.MissingSecWebSocketKey;
-    }
+    var header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
 
     const sha1_out = _getSha1(header_key);
     const base64_out = try _getBase64(self._private.allocator, sha1_out);
     defer self._private.allocator.free(base64_out);
 
-    const header_result_basic = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
-    const header_result = try self._private.allocator.alloc(u8, header_version.len + header_result_basic.len + base64_out.len + 4);
-    defer self._private.allocator.free(header_result);
+    const response_size = header_version.len + RESPONSE_BASIC.len + base64_out.len + 4;
+    const response = try self._private.allocator.alloc(u8, response_size);
+    defer self._private.allocator.free(response);
+
     var dest_pos: usize = 0;
     var src_pos: usize = header_version.len;
-    @memcpy(header_result[dest_pos..src_pos], header_version);
+    @memcpy(response[dest_pos..src_pos], header_version);
     dest_pos = src_pos;
-    src_pos += header_result_basic.len;
-    @memcpy(header_result[dest_pos..src_pos], header_result_basic);
+    src_pos += RESPONSE_BASIC.len;
+    @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC);
     dest_pos = src_pos;
     src_pos += base64_out.len;
-    @memcpy(header_result[dest_pos..src_pos], base64_out);
+    @memcpy(response[dest_pos..src_pos], base64_out);
     dest_pos = src_pos;
     src_pos += 4;
-    @memcpy(header_result[dest_pos..src_pos], "\r\n\r\n");
+    @memcpy(response[dest_pos..src_pos], "\r\n\r\n");
 
-    //std.debug.print("=== send header ===\n{s}\n", .{header_result});
-    try self._private.stream.?.writer().writeAll(header_result);
+    //std.debug.print("=== send header ===\n{s}\n", .{response});
+    try self._private.stream.?.writer().writeAll(response);
 
     return true;
 }
 
-fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringHashMap([]const u8) {
+fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) anyerror!std.StringHashMap([]const u8) {
     var result = std.StringHashMap([]const u8).init(allocator.*);
 
     var first_header_line: bool = true;
@@ -95,24 +85,9 @@ fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringH
             first_header_line = false;
 
             var header_line_iter = std.mem.split(u8, header_line, " ");
-            var method: []const u8 = undefined;
-            if (header_line_iter.next()) |v| {
-                method = v;
-            } else {
-                return error.MissingMethod;
-            }
-            var uri: []const u8 = undefined;
-            if (header_line_iter.next()) |v| {
-                uri = v;
-            } else {
-                return error.MissingUri;
-            }
-            var version: []const u8 = undefined;
-            if (header_line_iter.next()) |v| {
-                version = v;
-            } else {
-                return error.MissingVersion;
-            }
+            var method: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingMethod;
+            var uri: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingUri;
+            var version: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingVersion;
 
             //std.debug.print("header: {s} {s} {s}\n", .{ method, uri, version });
 
@@ -133,7 +108,7 @@ fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) !std.StringH
     return result;
 }
 
-fn _getSha1(header_key: []const u8) [20]u8 {
+inline fn _getSha1(header_key: []const u8) [20]u8 {
     var sha1_out: [20]u8 = undefined;
     var sha1_key = std.crypto.hash.Sha1.init(.{});
     sha1_key.update(header_key);
@@ -142,7 +117,7 @@ fn _getSha1(header_key: []const u8) [20]u8 {
     return sha1_out;
 }
 
-fn _getBase64(allocator: *const Allocator, sha1_out: [20]u8) ![]const u8 {
+inline fn _getBase64(allocator: *const Allocator, sha1_out: [20]u8) anyerror![]const u8 {
     const base64 = std.base64.Base64Encoder.init(ENCODER_ALPHABETE.*, '=');
     const base64_out_len = base64.calcSize(sha1_out.len);
     const base64_out = try allocator.alloc(u8, base64_out_len);

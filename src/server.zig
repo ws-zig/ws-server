@@ -47,7 +47,7 @@ pub const Server = struct {
         self._private.config = config;
     }
 
-    pub fn listen(self: *Self) !void {
+    pub fn listen(self: *Self) anyerror!void {
         if (self._private.allocator == undefined) {
             return error.MissingAllocator;
         }

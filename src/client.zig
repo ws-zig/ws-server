@@ -13,6 +13,7 @@
 // limitations under the License.
 
 const std = @import("std");
+const Mutex = std.Thread.Mutex;
 const Stream = std.net.Stream;
 const Address = std.net.Address;
 const Allocator = std.mem.Allocator;
@@ -26,6 +27,9 @@ const PrivateFields = struct {
     allocator: *const std.mem.Allocator = undefined,
     stream: ?Stream = null,
     address: ?Address = null,
+
+    // A security measure.
+    mutex: Mutex = Mutex{},
 
     close_conn: bool = false,
     conn_closed: bool = false,
@@ -42,43 +46,65 @@ pub const Client = struct {
     }
 
     /// Send a "text" message to this client.
-    ///
-    /// **IMPORTANT:** The message cannot contain more than 65531 bytes!
-    pub fn sendText(self: *Self, data: []const u8) !void {
+    pub fn sendText(self: *Self, data: []const u8) anyerror!void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writeText(data);
         const message_result = message.get().*.?;
-        try self._private.stream.?.writeAll(message_result);
+
+        self._private.mutex.lock();
+        defer self._private.mutex.unlock();
+
+        if (self._private.stream) |stream| {
+            try stream.writeAll(message_result);
+        }
     }
 
     /// Send a "close" message to this client.
     ///
     /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
-    pub fn sendClose(self: *Self) !void {
+    pub fn sendClose(self: *Self) anyerror!void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writeClose();
         const message_result = message.get().*.?;
-        try self._private.stream.?.writeAll(message_result);
+
+        self._private.mutex.lock();
+        defer self._private.mutex.unlock();
+
+        if (self._private.stream) |stream| {
+            try stream.writeAll(message_result);
+        }
     }
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
-    pub fn sendPing(self: *Self) !void {
+    pub fn sendPing(self: *Self) anyerror!void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writePing();
         const message_result = message.get().*.?;
-        try self._private.stream.?.writeAll(message_result);
+
+        self._private.mutex.lock();
+        defer self._private.mutex.unlock();
+
+        if (self._private.stream) |stream| {
+            try stream.writeAll(message_result);
+        }
     }
 
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
-    pub fn sendPong(self: *Self) !void {
+    pub fn sendPong(self: *Self) anyerror!void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
         try message.writePong();
         const message_result = message.get().*.?;
-        try self._private.stream.?.writeAll(message_result);
+
+        self._private.mutex.lock();
+        defer self._private.mutex.unlock();
+
+        if (self._private.stream) |stream| {
+            try stream.writeAll(message_result);
+        }
     }
 
     /// Close the connection from this client immediately. (No "close" message is sent to the client!)
@@ -88,6 +114,8 @@ pub const Client = struct {
 
     fn _deinit(self: *Self) void {
         self._private.close_conn = true;
+        self._private.mutex.lock();
+        defer self._private.mutex.unlock();
         if (self._private.stream != null) {
             self._private.stream.?.close();
             self._private.stream = null;
@@ -98,7 +126,7 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) !void {
+pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) anyerror!void {
     var message: ?Message = null;
     defer if (message != null) {
         message.?.deinit();
@@ -160,7 +188,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
 
     cbs.disconnect.handle(self);
 
-    if (self._private.close_conn == false) {
+    if (self._private.conn_closed == false) {
         self._deinit();
     }
 }

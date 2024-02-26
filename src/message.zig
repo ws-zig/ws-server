@@ -17,8 +17,8 @@ const Allocator = std.mem.Allocator;
 
 const Frame = @import("./frame.zig").Frame;
 
-pub const Type = enum(i8) {
-    Unknown = -1,
+pub const Type = enum(u8) {
+    Unknown = 255,
     Continue = 0,
     Text = 1,
     Binary = 2,
@@ -41,11 +41,8 @@ pub const Type = enum(i8) {
     }
 
     pub fn into(self: Self) u8 {
-        if (self == Type.Unknown) {
-            return 255;
-        }
         const opcode = @intFromEnum(self);
-        return @intCast(opcode);
+        return opcode;
     }
 };
 
@@ -71,9 +68,9 @@ pub const Message = struct {
     }
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
-    pub fn read(self: *Self, buffer: []const u8) !void {
+    pub fn read(self: *Self, buffer: []const u8) anyerror!void {
         if (self.allocator == undefined) {
-            return error.MissingAllocator;
+            return error.Message_MissingAllocator;
         }
 
         var frame = Frame{ .allocator = self.allocator, .bytes = buffer };
@@ -95,37 +92,42 @@ pub const Message = struct {
         @memcpy(self._bytes.?[old_bytes_len..], data.*);
     }
 
-    fn _write(self: *Self, data: []const u8, type_: Type) !void {
+    fn _write(self: *Self, data: []const u8) anyerror!void {
         if (self.allocator == undefined) {
-            return error.MissingAllocator;
+            return error.Message_MissingAllocator;
         }
 
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
-        const frame_bytes = try frame.write(type_.into());
+        const frame_bytes = try frame.write(self._type.into());
         self._bytes = try self.allocator.alloc(u8, frame_bytes.*.len);
         @memcpy(self._bytes.?, frame_bytes.*);
     }
 
-    pub fn writeText(self: *Self, data: []const u8) !void {
-        try self._write(data, Type.Text);
+    pub fn writeText(self: *Self, data: []const u8) anyerror!void {
+        self._type = Type.Text;
+        try self._write(data);
     }
 
-    pub fn writeClose(self: *Self) !void {
-        try self._write("", Type.Close);
+    pub fn writeClose(self: *Self) anyerror!void {
+        self._type = Type.Close;
+        try self._write("");
     }
 
-    pub fn writePong(self: *Self) !void {
-        try self._write("", Type.Pong);
+    pub fn writePing(self: *Self) anyerror!void {
+        self._type = Type.Ping;
+        try self._write("");
     }
 
-    pub fn writePing(self: *Self) !void {
-        try self._write("", Type.Ping);
+    pub fn writePong(self: *Self) anyerror!void {
+        self._type = Type.Pong;
+        try self._write("");
     }
 
     pub fn deinit(self: *Self) void {
         if (self._bytes != null) {
             self.allocator.free(self._bytes.?);
         }
+        self.* = undefined;
     }
 };

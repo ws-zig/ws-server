@@ -46,8 +46,6 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const FrameError = error{ Unknown, OutOfMemory, MissingAllocator, MissingBytes, TooManyBytes };
-
 pub const Frame = struct {
     allocator: *const Allocator = undefined,
     bytes: ?[]const u8 = null,
@@ -72,20 +70,25 @@ pub const Frame = struct {
         return self._opcode;
     }
 
-    pub fn read(self: *Self) FrameError!*[]u8 {
+    pub fn read(self: *Self) anyerror!*[]u8 {
         if (self.allocator == undefined) {
-            return FrameError.MissingAllocator;
+            return error.Frame_MissingAllocator;
         }
         if (self.bytes == null) {
-            return FrameError.MissingBytes;
+            return error.Frame_MissingBytes;
         }
 
-        self._parseFlags();
+        try self._parseFlags();
         try self._parsePayload();
         return &self._payload_data.?;
     }
 
-    fn _parseFlags(self: *Self) void {
+    fn _parseFlags(self: *Self) anyerror!void {
+        // Prevent clients from crashing the server with too few bytes.
+        if (self.bytes.?.len < 2) {
+            return error.Frame_TooFewBytes;
+        }
+
         // The FIN bit tells whether this is the last message in a series.
         // If it's false, then the server keeps listening for more parts of the message.
         self._fin = (self.bytes.?[0] & 0b10000000) != 0;
@@ -108,13 +111,31 @@ pub const Frame = struct {
         //std.debug.print("payload length: {any}\n", .{self._payload_len});
     }
 
-    fn _parsePayload(self: *Self) !void {
+    fn _parsePayload(self: *Self) anyerror!void {
         var extra_len: u8 = 2;
         if (self._payload_len == 126) {
-            self._payload_len = @intCast(@as(u16, self.bytes.?[2]) << 8 | self.bytes.?[3]);
+            // A minimum of 4 bytes is required.
+            if (self.bytes.?.len < 4) {
+                return error.Frame_TooFewBytes;
+            }
+
+            self._payload_len = @as(u16, self.bytes.?[2]) << 8 | self.bytes.?[3];
             extra_len += 2;
         } else if (self._payload_len == 127) {
-            self._payload_len = @intCast(@as(u64, self.bytes.?[2]) << 56 | @as(u64, self.bytes.?[3]) << 48 | @as(u64, self.bytes.?[4]) << 40 | @as(u64, self.bytes.?[5]) << 32 | @as(u64, self.bytes.?[6]) << 24 | @as(u64, self.bytes.?[7]) << 16 | @as(u64, self.bytes.?[8]) << 8 | self.bytes.?[9]);
+            // A minimum of 10 bytes is required
+            if (self.bytes.?.len < 10) {
+                return error.Frame_TooFewBytes;
+            }
+
+            self._payload_len =
+                @as(u64, self.bytes.?[2]) << 56 |
+                @as(u64, self.bytes.?[3]) << 48 |
+                @as(u64, self.bytes.?[4]) << 40 |
+                @as(u64, self.bytes.?[5]) << 32 |
+                @as(u64, self.bytes.?[6]) << 24 |
+                @as(u64, self.bytes.?[7]) << 16 |
+                @as(u64, self.bytes.?[8]) << 8 |
+                self.bytes.?[9];
             extra_len += 8;
         }
 
@@ -131,7 +152,14 @@ pub const Frame = struct {
         }
     }
 
-    pub fn write(self: *Self, opcode: u8) FrameError!*[]u8 {
+    pub fn write(self: *Self, opcode: u8) anyerror!*[]u8 {
+        if (self.allocator == undefined) {
+            return error.Frame_MissingAllocator;
+        }
+        if (self.bytes == null) {
+            return error.Frame_MissingBytes;
+        }
+
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         extra_data[0] = opcode | 0b10000000;
@@ -162,12 +190,9 @@ pub const Frame = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        if (self.allocator == undefined) {
-            return;
-        }
-
         if (self._payload_data != null) {
             self.allocator.free(self._payload_data.?);
         }
+        self.* = undefined;
     }
 };
