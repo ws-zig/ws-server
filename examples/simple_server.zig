@@ -8,7 +8,7 @@ const Client = ws.Client;
 // When we have a new client, this function will be called before we can receive a message
 // like "text" from this client.
 fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool {
-    std.debug.print("Handshake from ({any}): {s} {s} {s}\n", .{ client.getAddress().?, headers.*.get("method").?, headers.*.get("uri").?, headers.*.get("version").? });
+    std.debug.print("Handshake from ({any}): {s} {s} {s}\n", .{ client.getAddress(), headers.get("method").?, headers.get("uri").?, headers.get("version").? });
     // Set the return value to false to abort the
     // handshake and immediately disconnect from the client.
     return true;
@@ -17,12 +17,12 @@ fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerr
 // If something went wrong unexpectedly, you can use this function to view some details of the error.
 // After this function call, the connection to the client is immediately terminated.
 fn _onError(client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void {
-    std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}", .{ type_, client.getAddress().?, loc.file, loc.fn_name, loc.line, loc.column });
+    std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}\n", .{ type_, client.getAddress(), loc.file, loc.fn_name, loc.line, loc.column });
 }
 
 // When the incoming message loop breaks and the client disconnects, this function is called.
 fn _onDisconnect(client: *Client) anyerror!void {
-    std.debug.print("Client ({any}) disconnected!\n", .{client.getAddress().?});
+    std.debug.print("Client ({any}) disconnected!\n", .{client.getAddress()});
 }
 
 // When a text message has been received from the client, this function is called.

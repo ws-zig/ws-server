@@ -28,7 +28,7 @@ const RESPONSE_BASIC = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnec
 pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
     //std.debug.print("=== handshake ===\n", .{});
 
-    var headers = try _getHeaders(self._private.allocator, self._private.stream.?);
+    var headers = try _getHeaders(self._private.allocator, &self._private.connection.stream);
     defer headers.deinit();
 
     if (cbs.handshake.handle(self, &headers) == false) {
@@ -36,7 +36,7 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!boo
     }
 
     const header_version = headers.get("version").?;
-    var header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
+    const header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
 
     const sha1_out = _getSha1(header_key);
     const base64_out = try _getBase64(self._private.allocator, sha1_out);
@@ -60,12 +60,12 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!boo
     @memcpy(response[dest_pos..src_pos], "\r\n\r\n");
 
     //std.debug.print("=== send header ===\n{s}\n", .{response});
-    try self._private.stream.?.writer().writeAll(response);
+    try self._private.connection.stream.writer().writeAll(response);
 
     return true;
 }
 
-fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) anyerror!std.StringHashMap([]const u8) {
+fn _getHeaders(allocator: *const Allocator, stream: *const std.net.Stream) anyerror!std.StringHashMap([]const u8) {
     var result = std.StringHashMap([]const u8).init(allocator.*);
 
     var first_header_line: bool = true;
@@ -85,9 +85,9 @@ fn _getHeaders(allocator: *const Allocator, stream: std.net.Stream) anyerror!std
             first_header_line = false;
 
             var header_line_iter = std.mem.split(u8, header_line, " ");
-            var method: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingMethod;
-            var uri: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingUri;
-            var version: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingVersion;
+            const method: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingMethod;
+            const uri: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingUri;
+            const version: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingVersion;
 
             //std.debug.print("header: {s} {s} {s}\n", .{ method, uri, version });
 

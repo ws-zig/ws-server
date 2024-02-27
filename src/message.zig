@@ -47,7 +47,7 @@ pub const Type = enum(u8) {
 };
 
 pub const Message = struct {
-    allocator: *const Allocator = undefined,
+    allocator: *const Allocator,
     _bytes: ?[]u8 = null,
     // Tells us whether the message is complete or whether we need to wait for new data.
     _ready: bool = false,
@@ -69,10 +69,6 @@ pub const Message = struct {
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
     pub fn read(self: *Self, buffer: []const u8) anyerror!void {
-        if (self.allocator == undefined) {
-            return error.Message_MissingAllocator;
-        }
-
         var frame = Frame{ .allocator = self.allocator, .bytes = buffer };
         defer frame.deinit();
 
@@ -92,41 +88,12 @@ pub const Message = struct {
         @memcpy(self._bytes.?[old_bytes_len..], data.*);
     }
 
-    fn _write(self: *Self, data: []const u8) anyerror!void {
-        if (self.allocator == undefined) {
-            return error.Message_MissingAllocator;
-        }
-
+    pub fn write(self: *Self, type_: Type, data: []const u8) anyerror!void {
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
-        const frame_bytes = try frame.write(self._type.into());
-        self._bytes = try self.allocator.alloc(u8, frame_bytes.*.len);
+        const frame_bytes = try frame.write(type_.into());
+        self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
         @memcpy(self._bytes.?, frame_bytes.*);
-    }
-
-    pub fn writeText(self: *Self, data: []const u8) anyerror!void {
-        self._type = Type.Text;
-        try self._write(data);
-    }
-
-    pub fn writeBinary(self: *Self, data: []const u8) anyerror!void {
-        self._type = Type.Binary;
-        try self._write(data);
-    }
-
-    pub fn writeClose(self: *Self) anyerror!void {
-        self._type = Type.Close;
-        try self._write("");
-    }
-
-    pub fn writePing(self: *Self) anyerror!void {
-        self._type = Type.Ping;
-        try self._write("");
-    }
-
-    pub fn writePong(self: *Self) anyerror!void {
-        self._type = Type.Pong;
-        try self._write("");
     }
 
     pub fn deinit(self: *Self) void {

@@ -20,7 +20,7 @@ const ClientFile = @import("./client.zig");
 const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
-    allocator: *const Allocator = undefined,
+    allocator: ?*const Allocator = null,
     addr: ?[]const u8 = null,
     port: u16 = 8080,
 
@@ -35,7 +35,7 @@ pub const ServerConfig = struct {
 
 pub const Server = struct {
     /// Private data that should not be touched.
-    _private: PrivateFields = undefined,
+    _private: PrivateFields,
 
     const Self = @This();
 
@@ -48,7 +48,7 @@ pub const Server = struct {
     }
 
     pub fn listen(self: *Self) anyerror!void {
-        if (self._private.allocator == undefined) {
+        if (self._private.allocator == null) {
             return error.MissingAllocator;
         }
         if (self._private.addr == null) {
@@ -68,7 +68,7 @@ pub const Server = struct {
     }
 
     fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
-        var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator, .stream = connection.stream, .address = connection.address } };
+        var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator.?, .connection = connection } };
         const handshake_result = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
             self._private.clientCallbacks.error_.handle(&client, err, @src());
             client.closeImmediately();
