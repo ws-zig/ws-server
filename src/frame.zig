@@ -145,12 +145,17 @@ pub const Frame = struct {
         }
     }
 
-    pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
+    pub fn write(self: *Self, opcode: u8, last_frame: bool) anyerror![]u8 {
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        extra_data[0] = opcode | 0b10000000;
+        if (last_frame == true) {
+            extra_data[0] = opcode | 0b10000000;
+        } else {
+            extra_data[0] = opcode | 0b00000000;
+        }
+
         if (self.bytes.len <= 125) {
-            extra_data[1] = @intCast(self.bytes.len);
+            extra_data[1] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 2;
         } else if (self.bytes.len <= 65531) {
             extra_data[1] = 126;
@@ -169,6 +174,7 @@ pub const Frame = struct {
             extra_data[9] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 10;
         }
+
         self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.len);
         @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
         @memcpy(self._payload_data.?[extra_len..], self.bytes);

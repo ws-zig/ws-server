@@ -7,13 +7,13 @@ const Client = ws.Client;
 fn _onText(client: *Client, data: []const u8) anyerror!void {
     if (data[0] == 'a') {
         // The client should now receive a "close" message, send the same message back to us and the connection should be closed.
-        try client.sendClose();
+        try client.close();
     } else if (data[0] == 'b') {
         // The connection is closed immediately without sending a "close" message to the client.
         client.closeImmediately();
     } else {
         // We send a "close" message to the client and without waiting for a response we close the connection.
-        try client.sendClose();
+        try client.close();
         client.closeImmediately();
     }
 }

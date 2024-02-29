@@ -42,45 +42,88 @@ pub const Client = struct {
         return self._private.connection.address;
     }
 
-    fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
-        if (self._private.conn_closed == true) {
-            return;
-        }
-
+    fn _sendAll(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
 
-        try message.write(type_, data);
+        try message.write(type_, true, data);
         const message_result = message.get().?;
 
         // TODO: Find a way to check whether the stream is available or not
-        try self._private.connection.stream.writeAll(message_result);
+        if (self._private.conn_closed == false) {
+            try self._private.connection.stream.writeAll(message_result);
+        }
+    }
+
+    fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
+        if (data.len < 65531) {
+            try self._sendAll(type_, data);
+            return;
+        }
+
+        var message_idx: usize = 0;
+        while (true) {
+            const data_left: usize = data.len - message_idx;
+            var message = Message{ .allocator = self._private.allocator };
+            defer message.deinit();
+
+            if (message_idx > 0) {
+                if (data_left > 65531) {
+                    try message.write(MessageType.Continue, false, data[message_idx..(message_idx + 65531)]);
+                } else {
+                    try message.write(MessageType.Continue, true, data[message_idx..(message_idx + data_left)]);
+                }
+            } else {
+                try message.write(type_, false, data[0..65531]);
+            }
+            const message_result = message.get().?;
+
+            // TODO: Find a way to check whether the stream is available or not
+            if (self._private.conn_closed == false) {
+                try self._private.connection.stream.writeAll(message_result);
+            }
+
+            message_idx += 65531;
+            if (data.len <= message_idx) {
+                break;
+            }
+        }
     }
 
     /// Send a "text" message to this client.
-    pub fn sendText(self: *const Self, data: []const u8) anyerror!void {
+    pub fn textAll(self: *const Self, data: []const u8) anyerror!void {
+        try self._sendAll(MessageType.Text, data);
+    }
+
+    /// Send a "text" message to this client in 65535 byte chunks.
+    pub fn text(self: *const Self, data: []const u8) anyerror!void {
         try self._send(MessageType.Text, data);
     }
 
     /// Send a "binary" message to this client.
-    pub fn sendBinary(self: *const Self, data: []const u8) anyerror!void {
+    pub fn binaryAll(self: *const Self, data: []const u8) anyerror!void {
+        try self._sendAll(MessageType.Binary, data);
+    }
+
+    /// Send a "binary" message to this client in 65535 byte chunks.
+    pub fn binary(self: *const Self, data: []const u8) anyerror!void {
         try self._send(MessageType.Binary, data);
     }
 
     /// Send a "close" message to this client.
     ///
     /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
-    pub fn sendClose(self: *const Self) anyerror!void {
+    pub fn close(self: *const Self) anyerror!void {
         try self._send(MessageType.Close, "");
     }
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
-    pub fn sendPing(self: *const Self) anyerror!void {
+    pub fn ping(self: *const Self) anyerror!void {
         try self._send(MessageType.Ping, "");
     }
 
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
-    pub fn sendPong(self: *const Self) anyerror!void {
+    pub fn pong(self: *const Self) anyerror!void {
         try self._send(MessageType.Pong, "");
     }
 

@@ -44,7 +44,7 @@ const Client = ws.Client;
 
 fn _onText(client: *Client, data: []const u8) anyerror!void {
     std.debug.print("{s}\n", .{data});
-    try client.sendText("Hello!");
+    try client.textAll("Hello!");
 }
 
 pub fn main() anyerror!void {

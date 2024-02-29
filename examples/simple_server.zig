@@ -28,25 +28,25 @@ fn _onDisconnect(client: *Client) anyerror!void {
 // When a text message has been received from the client, this function is called.
 fn _onText(client: *Client, data: []const u8) anyerror!void {
     std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
-    try client.sendText("Hello client! :)");
+    try client.textAll("Hello client! :)");
 }
 
 // When a binary message has been received from the client, this function is called.
 fn _onBinary(client: *Client, data: []const u8) anyerror!void {
     std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
-    try client.sendBinary("Hello client! :)");
+    try client.binaryAll("Hello client! :)");
 }
 
 // When the client has properly closed the connection with a message, this function is called.
 fn _onClose(client: *Client) anyerror!void {
     std.debug.print("CLOSE RECEIVED!\n", .{});
-    try client.sendClose();
+    try client.close();
 }
 
 // When the client pings this server, this function is called.
 fn _onPing(client: *Client) anyerror!void {
     std.debug.print("PING RECEIVED!\n", .{});
-    try client.sendPong();
+    try client.pong();
 }
 
 // When we get a pong back from the client after a ping, this function is called.
