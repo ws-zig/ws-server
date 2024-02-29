@@ -21,7 +21,7 @@ const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
     allocator: ?*const Allocator = null,
-    addr: ?[]const u8 = null,
+    addr: []const u8,
     port: u16 = 8080,
 
     config: ServerConfig = ServerConfig{},
@@ -51,11 +51,8 @@ pub const Server = struct {
         if (self._private.allocator == null) {
             return error.MissingAllocator;
         }
-        if (self._private.addr == null) {
-            return error.MissingAddress;
-        }
 
-        const address = try net.Address.parseIp(self._private.addr.?, self._private.port);
+        const address = try net.Address.parseIp(self._private.addr, self._private.port);
         var server = net.StreamServer.init(.{});
         defer server.deinit();
         try server.listen(address);
