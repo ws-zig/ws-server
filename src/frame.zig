@@ -51,7 +51,7 @@ pub const Frame = struct {
     allocator: *const Allocator,
     bytes: []const u8,
 
-    _fin: bool = true,
+    _fin: bool = false,
     _rsv1: u8 = 0,
     _rsv2: u8 = 0,
     _rsv3: u8 = 0,
@@ -65,6 +65,10 @@ pub const Frame = struct {
 
     pub inline fn getFin(self: *const Self) bool {
         return self._fin;
+    }
+
+    pub inline fn setFin(self: *Self, state: bool) void {
+        self._fin = state;
     }
 
     pub inline fn getOpcode(self: *const Self) u8 {
@@ -150,10 +154,10 @@ pub const Frame = struct {
         }
     }
 
-    pub fn write(self: *Self, opcode: u8, last_frame: bool) anyerror![]u8 {
+    pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        if (last_frame == true) {
+        if (self._fin == true) {
             extra_data[0] = opcode | 0b10000000;
         } else {
             extra_data[0] = opcode | 0b00000000;

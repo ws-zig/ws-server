@@ -89,7 +89,8 @@ pub const Message = struct {
     pub fn write(self: *Self, comptime type_: Type, last_message: bool, data: []const u8) anyerror!void {
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
-        const frame_bytes = try frame.write(type_.into(), last_message);
+        frame.setFin(last_message);
+        const frame_bytes = try frame.write(type_.into());
         self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
         @memcpy(self._bytes.?, frame_bytes);
     }
