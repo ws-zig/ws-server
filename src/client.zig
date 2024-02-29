@@ -134,10 +134,6 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
         }
 
         switch (message.?.getType()) {
-            MessageType.Unknown => {
-                cbs.error_.handle(self, error.UnkownMessageType, @src());
-                break :messageLoop;
-            },
             MessageType.Continue => { // We are waiting for more data...
                 continue :messageLoop;
             },

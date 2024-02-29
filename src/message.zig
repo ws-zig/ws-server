@@ -18,7 +18,6 @@ const Allocator = std.mem.Allocator;
 const Frame = @import("./frame.zig").Frame;
 
 pub const Type = enum(u8) {
-    Unknown = 255,
     Continue = 0,
     Text = 1,
     Binary = 2,
@@ -28,7 +27,7 @@ pub const Type = enum(u8) {
 
     const Self = @This();
 
-    pub fn from(opcode: u8) Type {
+    pub fn from(opcode: u8) anyerror!Type {
         return switch (opcode) {
             0 => Type.Continue,
             1 => Type.Text,
@@ -36,13 +35,12 @@ pub const Type = enum(u8) {
             8 => Type.Close,
             9 => Type.Ping,
             10 => Type.Pong,
-            else => Type.Unknown,
+            else => return error.MessageType_Unknown,
         };
     }
 
-    pub fn into(self: Self) u8 {
-        const opcode = @intFromEnum(self);
-        return opcode;
+    pub inline fn into(self: Self) u8 {
+        return @intFromEnum(self);
     }
 };
 
@@ -51,7 +49,7 @@ pub const Message = struct {
     _bytes: ?[]u8 = null,
     // Tells us whether the message is complete or whether we need to wait for new data.
     _ready: bool = false,
-    _type: Type = Type.Unknown,
+    _type: Type = Type.Continue,
 
     const Self = @This();
 
@@ -75,7 +73,7 @@ pub const Message = struct {
         const data = try frame.read();
 
         self._ready = frame.getFin();
-        self._type = Type.from(frame.getOpcode());
+        self._type = try Type.from(frame.getOpcode());
 
         var old_bytes_len: usize = 0;
         if (self._bytes == null) {
@@ -88,7 +86,7 @@ pub const Message = struct {
         @memcpy(self._bytes.?[old_bytes_len..], data);
     }
 
-    pub fn write(self: *Self, type_: Type, data: []const u8) anyerror!void {
+    pub fn write(self: *Self, comptime type_: Type, data: []const u8) anyerror!void {
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
         const frame_bytes = try frame.write(type_.into());
