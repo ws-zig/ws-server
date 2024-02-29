@@ -43,6 +43,7 @@
 // If masking is used, the next 4 bytes contain the masking key.
 // All subsequent bytes are payload.
 
+const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
@@ -57,7 +58,7 @@ pub const Frame = struct {
     _opcode: u8 = 0,
     _masked: bool = false,
 
-    _payload_len: u64 = 0,
+    _payload_len: usize = 0,
     _payload_data: ?[]u8 = null,
 
     const Self = @This();
@@ -115,19 +116,23 @@ pub const Frame = struct {
             self._payload_len = @as(u16, self.bytes[2]) << 8 | self.bytes[3];
             extra_len += 2;
         } else if (self._payload_len == 127) {
+            if (builtin.cpu.arch != .x86_64) {
+                return error.Frame_UnsupportedArchitecture;
+            }
+
             // A minimum of 10 bytes is required
             if (self.bytes.len < 10) {
                 return error.Frame_TooFewBytes;
             }
 
             self._payload_len =
-                @as(u64, self.bytes[2]) << 56 |
-                @as(u64, self.bytes[3]) << 48 |
-                @as(u64, self.bytes[4]) << 40 |
-                @as(u64, self.bytes[5]) << 32 |
-                @as(u64, self.bytes[6]) << 24 |
-                @as(u64, self.bytes[7]) << 16 |
-                @as(u64, self.bytes[8]) << 8 |
+                @as(usize, self.bytes[2]) << 56 |
+                @as(usize, self.bytes[3]) << 48 |
+                @as(usize, self.bytes[4]) << 40 |
+                @as(usize, self.bytes[5]) << 32 |
+                @as(usize, self.bytes[6]) << 24 |
+                @as(usize, self.bytes[7]) << 16 |
+                @as(usize, self.bytes[8]) << 8 |
                 self.bytes[9];
             extra_len += 8;
         }
@@ -163,6 +168,10 @@ pub const Frame = struct {
             extra_data[3] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 4;
         } else {
+            if (builtin.cpu.arch != .x86_64) {
+                return error.Frame_UnsupportedArchitecture;
+            }
+
             extra_data[1] = 127;
             extra_data[2] = @intCast(self.bytes.len >> 56 & 0b11111111);
             extra_data[3] = @intCast(self.bytes.len >> 48 & 0b11111111);
