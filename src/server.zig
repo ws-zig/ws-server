@@ -75,9 +75,7 @@ pub const Server = struct {
             client.closeImmediately();
             return;
         }
-        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks) catch |err| {
-            std.debug.print("something went wrong: {any}\n", .{err});
-        };
+        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
     }
 
     /// This function is called whenever a new connection to the server is established.

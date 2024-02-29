@@ -25,7 +25,9 @@ const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.StreamServer.Connection,
 
+    // Breaks the message loop if this is true.
     close_conn: bool = false,
+    // Prevent sending messages to the disconnected client.
     conn_closed: bool = false,
 };
 
@@ -96,15 +98,18 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) anyerror!void {
+pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) void {
     var message: ?Message = null;
     defer if (message != null) {
         message.?.deinit();
         message = null;
     };
 
-    messageLoop: while (self._private.close_conn == false) {
-        var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
+    message_loop: while (self._private.close_conn == false) {
+        var buffer: []u8 = self._private.allocator.alloc(u8, buffer_size) catch |err| {
+            cbs.error_.handle(self, err, @src());
+            break :message_loop;
+        };
         defer self._private.allocator.free(buffer);
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
@@ -117,7 +122,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
                 // Something went wrong ...
                 else => cbs.error_.handle(self, err, @src()),
             }
-            break;
+            break :message_loop;
         };
 
         if (message == null) {
@@ -125,17 +130,17 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
         }
         message.?.read(buffer[0..buffer_len]) catch |err| {
             cbs.error_.handle(self, err, @src());
-            break;
+            break :message_loop;
         };
 
         // Tells us if the message has all the data and can now be processed.
         if (message.?.isReady() == false) {
-            continue;
+            continue :message_loop;
         }
 
         switch (message.?.getType()) {
             MessageType.Continue => { // We are waiting for more data...
-                continue :messageLoop;
+                continue :message_loop;
             },
             MessageType.Text => { // Process received text message...
                 cbs.text.handle(self, message.?.get());
@@ -145,7 +150,7 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
             },
             MessageType.Close => { // The client sends us a "close" message, so he wants to disconnect properly.
                 cbs.close.handle(self);
-                break :messageLoop;
+                break :message_loop;
             },
             MessageType.Ping => { // "Hello server, are you there?"
                 cbs.ping.handle(self);
