@@ -89,9 +89,9 @@ const ClientText = struct {
 
     const Self = @This();
 
-    pub fn handle(self: *const Self, client: *Client, data: []const u8) void {
+    pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
-            self.handler.?(client, data) catch |err| {
+            self.handler.?(client, data.?) catch |err| {
                 std.debug.print("onText() failed: {any}", .{err});
             };
         }
@@ -103,9 +103,9 @@ const ClientBinary = struct {
 
     const Self = @This();
 
-    pub fn handle(self: *const Self, client: *Client, data: []const u8) void {
+    pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
-            self.handler.?(client, data) catch |err| {
+            self.handler.?(client, data.?) catch |err| {
                 std.debug.print("onBinary() failed: {any}", .{err});
             };
         }

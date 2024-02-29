@@ -62,18 +62,18 @@ pub const Frame = struct {
 
     const Self = @This();
 
-    pub fn getFin(self: *Self) bool {
+    pub inline fn getFin(self: *const Self) bool {
         return self._fin;
     }
 
-    pub fn getOpcode(self: *Self) u8 {
+    pub inline fn getOpcode(self: *const Self) u8 {
         return self._opcode;
     }
 
-    pub fn read(self: *Self) anyerror!*[]u8 {
+    pub fn read(self: *Self) anyerror![]u8 {
         try self._parseFlags();
         try self._parsePayload();
-        return &self._payload_data.?;
+        return self._payload_data.?;
     }
 
     fn _parseFlags(self: *Self) anyerror!void {
@@ -145,7 +145,7 @@ pub const Frame = struct {
         }
     }
 
-    pub fn write(self: *Self, opcode: u8) anyerror!*[]u8 {
+    pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
         extra_data[0] = opcode | 0b10000000;
@@ -172,7 +172,7 @@ pub const Frame = struct {
         self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.len);
         @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
         @memcpy(self._payload_data.?[extra_len..], self.bytes);
-        return &self._payload_data.?;
+        return self._payload_data.?;
     }
 
     pub fn deinit(self: *Self) void {

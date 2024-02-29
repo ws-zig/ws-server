@@ -49,7 +49,7 @@ pub const Client = struct {
         defer message.deinit();
 
         try message.write(type_, data);
-        const message_result = message.get().*.?;
+        const message_result = message.get().?;
 
         // TODO: Find a way to check whether the stream is available or not
         try self._private.connection.stream.writeAll(message_result);
@@ -142,10 +142,10 @@ pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallb
                 continue :messageLoop;
             },
             MessageType.Text => { // Process received text message...
-                cbs.text.handle(self, message.?.get().*.?);
+                cbs.text.handle(self, message.?.get());
             },
             MessageType.Binary => { // Process received binary message...
-                cbs.binary.handle(self, message.?.get().*.?);
+                cbs.binary.handle(self, message.?.get());
             },
             MessageType.Close => { // The client sends us a "close" message, so he wants to disconnect properly.
                 cbs.close.handle(self);

@@ -55,15 +55,15 @@ pub const Message = struct {
 
     const Self = @This();
 
-    pub fn get(self: *Self) *?[]u8 {
-        return &self._bytes;
+    pub inline fn get(self: *const Self) ?[]u8 {
+        return self._bytes;
     }
 
-    pub fn isReady(self: *Self) bool {
+    pub inline fn isReady(self: *const Self) bool {
         return self._ready;
     }
 
-    pub fn getType(self: *Self) Type {
+    pub inline fn getType(self: *const Self) Type {
         return self._type;
     }
 
@@ -85,7 +85,7 @@ pub const Message = struct {
             self._bytes = try self.allocator.realloc(self._bytes.?, old_bytes_len + data.len);
         }
 
-        @memcpy(self._bytes.?[old_bytes_len..], data.*);
+        @memcpy(self._bytes.?[old_bytes_len..], data);
     }
 
     pub fn write(self: *Self, type_: Type, data: []const u8) anyerror!void {
@@ -93,7 +93,7 @@ pub const Message = struct {
         defer frame.deinit();
         const frame_bytes = try frame.write(type_.into());
         self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
-        @memcpy(self._bytes.?, frame_bytes.*);
+        @memcpy(self._bytes.?, frame_bytes);
     }
 
     pub fn deinit(self: *Self) void {
