@@ -39,14 +39,17 @@ pub const Server = struct {
 
     const Self = @This();
 
+    /// Create a new server to connect to.
     pub fn create(allocator: *const Allocator, addr: []const u8, port: u16) Self {
         return Self{ ._private = .{ .allocator = allocator, .addr = addr, .port = port } };
     }
 
+    /// Set advanced settings.
     pub fn setConfig(self: *Self, config: ServerConfig) void {
         self._private.config = config;
     }
 
+    /// Listen (run) the server.
     pub fn listen(self: *Self) anyerror!void {
         if (self._private.allocator == null) {
             return error.MissingAllocator;

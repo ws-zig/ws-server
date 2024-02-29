@@ -47,7 +47,7 @@ const ClientHandshake = struct {
     pub fn handle(self: *const Self, client: *Client, headers: *std.StringHashMap([]const u8)) bool {
         if (self.handler != null) {
             const cb_result = self.handler.?(client, headers) catch |err| {
-                std.debug.print("onHandshake() failed: {any}", .{err});
+                std.debug.print("Handshake callback failed: {any}\n", .{err});
                 return false;
             };
             return cb_result;
@@ -64,7 +64,7 @@ const ClientDisconnect = struct {
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
             self.handler.?(client) catch |err| {
-                std.debug.print("onDisconnect() failed: {any}", .{err});
+                std.debug.print("Disconnect callback failed: {any}\n", .{err});
             };
         }
     }
@@ -78,7 +78,7 @@ const ClientError = struct {
     pub fn handle(self: *const Self, client: *Client, type_: anyerror, loc: SourceLocation) void {
         if (self.handler != null) {
             self.handler.?(client, type_, loc) catch |err| {
-                std.debug.print("onError() failed: {any}", .{err});
+                std.debug.print("Error callback failed: {any}\n", .{err});
             };
         }
     }
@@ -92,7 +92,7 @@ const ClientText = struct {
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
             self.handler.?(client, data.?) catch |err| {
-                std.debug.print("onText() failed: {any}", .{err});
+                std.debug.print("Text callback failed: {any}\n", .{err});
             };
         }
     }
@@ -106,7 +106,7 @@ const ClientBinary = struct {
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
             self.handler.?(client, data.?) catch |err| {
-                std.debug.print("onBinary() failed: {any}", .{err});
+                std.debug.print("Binary callback failed: {any}\n", .{err});
             };
         }
     }
@@ -120,7 +120,7 @@ const ClientClose = struct {
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
             self.handler.?(client) catch |err| {
-                std.debug.print("onClose() failed: {any}", .{err});
+                std.debug.print("Close callback failed: {any}\n", .{err});
             };
         }
     }
@@ -134,7 +134,7 @@ const ClientPing = struct {
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
             self.handler.?(client) catch |err| {
-                std.debug.print("onPing() failed: {any}", .{err});
+                std.debug.print("Ping callback failed: {any}\n", .{err});
             };
         }
     }
@@ -148,7 +148,7 @@ const ClientPong = struct {
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
             self.handler.?(client) catch |err| {
-                std.debug.print("onPong() failed: {any}", .{err});
+                std.debug.print("Pong callback failed: {any}\n", .{err});
             };
         }
     }
