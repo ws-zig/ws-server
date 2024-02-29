@@ -27,7 +27,7 @@ pub const Type = enum(u8) {
 
     const Self = @This();
 
-    pub fn from(opcode: u8) anyerror!Type {
+    pub fn from(opcode: u8) anyerror!Self {
         return switch (opcode) {
             0 => Type.Continue,
             1 => Type.Text,
@@ -35,7 +35,7 @@ pub const Type = enum(u8) {
             8 => Type.Close,
             9 => Type.Ping,
             10 => Type.Pong,
-            else => return error.MessageType_Unknown,
+            else => error.MessageType_Unknown,
         };
     }
 
