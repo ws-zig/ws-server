@@ -30,7 +30,7 @@ const PrivateFields = struct {
 };
 
 pub const ServerConfig = struct {
-    buffer_size: u32 = 65535,
+    buffer_size: usize = 65535,
 };
 
 pub const Server = struct {

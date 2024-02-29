@@ -141,7 +141,7 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, buffer_size: u32, cbs: *const Callbacks.ClientCallbacks) void {
+pub fn handle(self: *Client, buffer_size: usize, cbs: *const Callbacks.ClientCallbacks) void {
     var message: ?Message = null;
     defer if (message != null) {
         message.?.deinit();
