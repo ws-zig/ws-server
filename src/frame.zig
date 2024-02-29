@@ -52,7 +52,7 @@ pub const Frame = struct {
     bytes: []const u8,
 
     _fin: bool = false,
-    _rsv1: u8 = 0,
+    _rsv1: u8 = 0, // Compressed
     _rsv2: u8 = 0,
     _rsv3: u8 = 0,
     _opcode: u8 = 0,
@@ -92,9 +92,10 @@ pub const Frame = struct {
         self._fin = (self.bytes[0] & 0b10000000) != 0;
         //std.debug.print("fin: {any}\n", .{self._fin});
 
-        self._rsv1 = self.bytes[0] & 0b01000000; // rsv1
-        self._rsv2 = self.bytes[0] & 0b00100000; // rsv2
-        self._rsv3 = self.bytes[0] & 0b00010000; // rsv3
+        // The extensions. Not currently implemented (02/29/2024).
+        self._rsv1 = self.bytes[0] & 0b01000000;
+        self._rsv2 = self.bytes[0] & 0b00100000;
+        self._rsv3 = self.bytes[0] & 0b00010000;
         //std.debug.print("rsv1: {d}\nrsv2: {d}\nrsv3: {d}\n", .{ self._rsv1, self._rsv2, self._rsv3 });
 
         // Fragmentation is only available on 0-2.
