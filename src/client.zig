@@ -56,9 +56,8 @@ pub const Client = struct {
     }
 
     fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
-        if (data.len < 65531) {
-            try self._sendAll(type_, data);
-            return;
+        if (data.len <= 65531) {
+            return try self._sendAll(type_, data);
         }
 
         var message_idx: usize = 0;
