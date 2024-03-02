@@ -25,10 +25,8 @@ const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.StreamServer.Connection,
 
-    // Breaks the message loop if this is true.
+    // true = Connection is closed by the server. Breaks the message loop.
     close_conn: bool = false,
-    // Prevent sending messages to the disconnected client.
-    conn_closed: bool = false,
 };
 
 pub const Client = struct {
@@ -49,10 +47,16 @@ pub const Client = struct {
         try message.write(type_, true, data);
         const message_result = message.get().?;
 
-        // TODO: Find a way to check whether the stream is available or not
-        if (self._private.conn_closed == false) {
-            try self._private.connection.stream.writeAll(message_result);
-        }
+        self._private.connection.stream.writeAll(message_result) catch |err| {
+            // This error occurs when the client has disconnected.
+            // On Windows we get an exception in the console,
+            // but that's a Zig(-lang) problem. It was fixed in version 0.12.0.
+            // TODO: Check `error.ConnectionResetByPeer` on non-Windows operating systems.
+            if (err == error.Unexpected) {
+                return;
+            }
+            return err;
+        };
     }
 
     fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
@@ -61,7 +65,7 @@ pub const Client = struct {
         }
 
         var message_idx: usize = 0;
-        while (true) {
+        message_loop: while (true) {
             const data_left: usize = data.len - message_idx;
             var message = Message{ .allocator = self._private.allocator };
             defer message.deinit();
@@ -77,14 +81,20 @@ pub const Client = struct {
             }
             const message_result = message.get().?;
 
-            // TODO: Find a way to check whether the stream is available or not
-            if (self._private.conn_closed == false) {
-                try self._private.connection.stream.writeAll(message_result);
-            }
+            self._private.connection.stream.writeAll(message_result) catch |err| {
+                // This error occurs when the client has disconnected.
+                // On Windows we get an exception in the console,
+                // but that's a Zig(-lang) problem. It was fixed in version 0.12.0.
+                // TODO: Check `error.ConnectionResetByPeer` on non-Windows operating systems.
+                if (err == error.Unexpected) {
+                    break :message_loop;
+                }
+                return err;
+            };
 
             message_idx += 65531;
             if (data.len <= message_idx) {
-                break;
+                break :message_loop;
             }
         }
     }
@@ -133,8 +143,7 @@ pub const Client = struct {
 
     fn _deinit(self: *Self) void {
         self._private.connection.stream.close();
-
-        self._private.conn_closed = true;
+        self.* = undefined;
     }
 };
 
@@ -156,11 +165,7 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const Callbacks.ClientCal
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
                 // The connection was not closed properly by this client.
-                OsReadError.NetNameDeleted, OsReadError.ConnectionTimedOut, OsReadError.ConnectionResetByPeer => {
-                    // There is currently no way to check if the stream is closed,
-                    // so we set this variable to `true` and prevent an error from being thrown.
-                    self._private.conn_closed = true;
-                },
+                OsReadError.NetNameDeleted, OsReadError.ConnectionTimedOut, OsReadError.ConnectionResetByPeer => {},
                 // Something went wrong ...
                 else => cbs.error_.handle(self, err, @src()),
             }
@@ -208,6 +213,6 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const Callbacks.ClientCal
         message = null;
     }
 
-    self._deinit();
     cbs.disconnect.handle(self);
+    self._deinit();
 }
