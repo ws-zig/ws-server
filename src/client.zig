@@ -16,6 +16,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const OsReadError = std.os.ReadError;
 
+const Utils = @import("./utils/lib.zig");
 const MessageFile = @import("./message.zig");
 const Message = MessageFile.Message;
 const MessageType = MessageFile.Type;
@@ -41,6 +42,14 @@ pub const Client = struct {
     }
 
     fn _sendAll(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
+        if (data.len > 65531) {
+            if (Utils.CPU.is64bit() == false) {
+                // We need to send this data in chunks,
+                // because `u64` is not available.
+                return try _send(self, type_, data);
+            }
+        }
+
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
 

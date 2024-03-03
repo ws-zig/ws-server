@@ -43,9 +43,10 @@
 // If masking is used, the next 4 bytes contain the masking key.
 // All subsequent bytes are payload.
 
-const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+
+const Utils = @import("./utils/lib.zig");
 
 pub const Frame = struct {
     allocator: *const Allocator,
@@ -121,13 +122,13 @@ pub const Frame = struct {
             self._payload_len = @as(u16, self.bytes[2]) << 8 | self.bytes[3];
             extra_len += 2;
         } else if (self._payload_len == 127) {
-            if (builtin.cpu.arch != .x86_64) {
-                return error.Frame_UnsupportedArchitecture;
-            }
-
             // A minimum of 10 bytes is required
             if (self.bytes.len < 10) {
                 return error.Frame_TooFewBytes;
+            }
+
+            if (Utils.CPU.is64bit() == false) {
+                return error.Frame_Unsupported64bit;
             }
 
             self._payload_len =
@@ -173,8 +174,8 @@ pub const Frame = struct {
             extra_data[3] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 4;
         } else {
-            if (builtin.cpu.arch != .x86_64) {
-                return error.Frame_UnsupportedArchitecture;
+            if (Utils.CPU.is64bit() == false) {
+                return error.Frame_Unsupported64bit;
             }
 
             extra_data[1] = 127;

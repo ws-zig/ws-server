@@ -16,6 +16,7 @@ const std = @import("std");
 const net = std.net;
 const Allocator = std.mem.Allocator;
 
+const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
 const Callbacks = @import("./callbacks.zig");
 
@@ -53,6 +54,14 @@ pub const Server = struct {
     pub fn listen(self: *Self) anyerror!void {
         if (self._private.allocator == null) {
             return error.MissingAllocator;
+        }
+        if (self._private.config.buffer_size > 65535) {
+            if (Utils.CPU.is64bit() == false) {
+                // On non-64-bit architectures,
+                // you cannot process messages larger than 65535 bytes.
+                // To prevent unexpected behavior, the size of the buffer should be reduced.
+                return error.BufferSizeExceeded;
+            }
         }
 
         const address = try net.Address.parseIp(self._private.addr, self._private.port);
