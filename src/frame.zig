@@ -166,10 +166,10 @@ pub const Frame = struct {
         }
 
         if (self.bytes.len <= 125) {
-            extra_data[1] = @intCast(self.bytes.len & 0b11111111);
+            extra_data[1] = @intCast(self.bytes.len | 0b00000000); // 0b10000000 = masked
             extra_len += 2;
         } else if (self.bytes.len <= 65531) {
-            extra_data[1] = 126;
+            extra_data[1] = 126 | 0b00000000; // 0b10000000 = masked
             extra_data[2] = @intCast(self.bytes.len >> 8 & 0b11111111);
             extra_data[3] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 4;
@@ -178,7 +178,7 @@ pub const Frame = struct {
                 return error.Frame_64bitRequired;
             }
 
-            extra_data[1] = 127;
+            extra_data[1] = 127 | 0b00000000; // 0b10000000 = masked
             extra_data[2] = @intCast(self.bytes.len >> 56 & 0b11111111);
             extra_data[3] = @intCast(self.bytes.len >> 48 & 0b11111111);
             extra_data[4] = @intCast(self.bytes.len >> 40 & 0b11111111);
