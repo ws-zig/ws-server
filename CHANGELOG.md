@@ -1,4 +1,20 @@
 # Changelog
+## [v0.2.1](https://github.com/ws-zig/ws-server/tree/v0.2.1) (2024-03-04 UTC+1)
+> [!NOTE]
+> The current Zig(-lang) version [**0.11.0**](https://github.com/ziglang/zig/releases/tag/0.11.0) is supported.
+
+**Fixed**
+- Send and receive large data on `AArch64`.
+- - With v0.2.0 we only checked `x86_64` for data type `u64`.
+- `text()` and `binary()` with exactly 65531 bytes.
+- - Data with exactly 65531 bytes never arrived at the client marked as complete.
+- `textAll()` and `binaryAll()` with to large data and unsupported data type `u64`.
+- - The data is now automatically sent to the client as "chunks" if the size is over 65531 bytes and the data type `u64` is not supported.
+
+**Known issues**
+- Console error on Windows when client disconnects.
+- - An error message is displayed in the console which can be ignored. The error is only displayed if the client disconnects during a callback. The problem was fixed with Zig(-lang) in version 0.12.0.
+
 ## [v0.2.0](https://github.com/ws-zig/ws-server/tree/v0.2.0) (2024-02-29 UTC+1)
 > [!NOTE]
 > The current Zig(-lang) version [**0.11.0**](https://github.com/ziglang/zig/releases/tag/0.11.0) is supported.
