@@ -8,7 +8,36 @@ A simple WebSocket server for the Zig(-lang) programming language. Feel free to 
 > [!TIP]
 > Documentation can be found in the source code of our [examples](https://github.com/ws-zig/ws-server/tree/main/examples).
 
-## Installation (v0.2.x and older)
+## Installation
+<details>
+<summary>v0.3.x and newer</summary>
+    
+- [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).
+- Unzip the folder somewhere.
+- Open your `build.zig`.
+- Look for the following code:
+```zig
+    const exe = b.addExecutable(.{
+        .name = "YOUR_PROJECT_NAME",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+```
+- Paste the following source code below:
+```zig
+    const wsServerModule = b.addModule("ws-server", .{ .root_source_file = .{ .path = "PATH_TO_DIRECTORY/ws-server-main/src/main.zig" } });
+    exe.root_module.addImport("ws-server", wsServerModule);
+```
+- Save the file and you're done!
+
+#### To build or run your project, you can use the following commands:
+- build: `zig build`
+- run: 
+</details>
+<details>
+<summary>v0.2.x and older</summary>
+    
 - [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).
 - Unzip the folder somewhere.
 - Open your `build.zig`.
@@ -33,6 +62,7 @@ A simple WebSocket server for the Zig(-lang) programming language. Feel free to 
 #### To build or run your project, you can use the following commands:
 - build: `zig build`
 - run: `zig run .\src\main.zig --deps ws-server --mod ws-server::PATH_TO_DIRECTORY\ws-server-main\src\main.zig`
+</details>
 
 ## Example
 ### Server:
