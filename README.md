@@ -1,9 +1,9 @@
 A simple WebSocket server for the Zig(-lang) programming language. Feel free to contribute and improve this implementation.
 
 > [!IMPORTANT]
-> `v0.2.x` and older versions require Zig(-lang) **0.11.0**.
-> 
 > `v0.3.x` and newer versions require Zig(-lang) **0.12.0**.
+> 
+> `v0.2.x` and older versions require Zig(-lang) **0.11.0**.
 
 > [!TIP]
 > Documentation can be found in the source code of our [examples](https://github.com/ws-zig/ws-server/tree/main/examples).
