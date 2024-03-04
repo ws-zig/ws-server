@@ -64,21 +64,20 @@ pub const Server = struct {
             }
         }
 
-        const address = try net.Address.parseIp(self._private.addr, self._private.port);
-        var server = net.StreamServer.init(.{});
+        const address: net.Address = try net.Address.parseIp(self._private.addr, self._private.port);
+        var server: net.Server = try address.listen(.{});
         defer server.deinit();
-        try server.listen(address);
 
         while (true) {
-            const connection = try server.accept();
-            const thread = try std.Thread.spawn(.{}, _handleConnection, .{ self, connection });
+            const connection: net.Server.Connection = try server.accept();
+            const thread: std.Thread = try std.Thread.spawn(.{}, _handleConnection, .{ self, connection });
             thread.detach();
         }
     }
 
-    fn _handleConnection(self: *const Self, connection: net.StreamServer.Connection) void {
+    fn _handleConnection(self: *const Self, connection: net.Server.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator.?, .connection = connection } };
-        const handshake_result = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
+        const handshake_result: bool = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
             self._private.clientCallbacks.error_.handle(&client, err, @src());
             client.closeImmediately();
             return;

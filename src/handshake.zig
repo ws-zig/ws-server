@@ -35,15 +35,15 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!boo
         return false;
     }
 
-    const header_version = headers.get("version").?;
+    const header_version: []const u8 = headers.get("version").?;
     const header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
 
-    const sha1_out = _getSha1(header_key);
-    const base64_out = try _getBase64(self._private.allocator, sha1_out);
+    const sha1_out: [20]u8 = _getSha1(header_key);
+    const base64_out: []const u8 = try _getBase64(self._private.allocator, sha1_out);
     defer self._private.allocator.free(base64_out);
 
     const response_size = header_version.len + RESPONSE_BASIC.len + base64_out.len + 4;
-    const response = try self._private.allocator.alloc(u8, response_size);
+    const response: []u8 = try self._private.allocator.alloc(u8, response_size);
     defer self._private.allocator.free(response);
 
     var dest_pos: usize = 0;
@@ -73,7 +73,7 @@ fn _getHeaders(allocator: *const Allocator, stream: *const std.net.Stream) anyer
         var header_line_array = std.ArrayList(u8).init(allocator.*);
         defer header_line_array.deinit();
         try stream.reader().streamUntilDelimiter(header_line_array.writer(), '\n', std.math.maxInt(usize));
-        var header_line = try header_line_array.toOwnedSlice();
+        var header_line: []u8 = try header_line_array.toOwnedSlice();
         header_line = header_line[0..(header_line.len - 1)];
 
         // End of header
@@ -96,8 +96,8 @@ fn _getHeaders(allocator: *const Allocator, stream: *const std.net.Stream) anyer
             try result.put("version", version);
         } else {
             var header_line_iter = std.mem.split(u8, header_line, ": ");
-            const key = header_line_iter.next().?;
-            const value = header_line_iter.next().?;
+            const key: []const u8 = header_line_iter.next().?;
+            const value: []const u8 = header_line_iter.next().?;
 
             //std.debug.print("header: {s}({d}):{s}({d})\n", .{ key, key.len, value, value.len });
 
@@ -119,8 +119,8 @@ inline fn _getSha1(header_key: []const u8) [20]u8 {
 
 inline fn _getBase64(allocator: *const Allocator, sha1_out: [20]u8) anyerror![]const u8 {
     const base64 = std.base64.Base64Encoder.init(ENCODER_ALPHABETE.*, '=');
-    const base64_out_len = base64.calcSize(sha1_out.len);
-    const base64_out = try allocator.alloc(u8, base64_out_len);
+    const base64_out_len: usize = base64.calcSize(sha1_out.len);
+    const base64_out: []u8 = try allocator.alloc(u8, base64_out_len);
     _ = base64.encode(base64_out, &sha1_out);
     return base64_out;
 }

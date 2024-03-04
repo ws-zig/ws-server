@@ -23,7 +23,7 @@ const Callbacks = @import("./callbacks.zig");
 
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
-    connection: std.net.StreamServer.Connection,
+    connection: std.net.Server.Connection,
 
     // true = Connection is closed by the server. Breaks the message loop.
     close_conn: bool = false,
@@ -52,14 +52,11 @@ pub const Client = struct {
 
             return err;
         };
-        const message_result = message.get().?;
+        const message_result: []u8 = message.get().?;
 
         self._private.connection.stream.writeAll(message_result) catch |err| {
-            // This error occurs when the client has disconnected.
-            // On Windows we get an exception in the console,
-            // but that's a Zig(-lang) problem. It was fixed in version 0.12.0.
-            // TODO: Check `error.ConnectionResetByPeer` on non-Windows operating systems.
-            if (err == error.Unexpected) {
+            // The connection was closed by the client.
+            if (err == error.ConnectionResetByPeer) {
                 return;
             }
             return err;
@@ -86,14 +83,11 @@ pub const Client = struct {
             } else {
                 try message.write(type_, false, data[0..65531]);
             }
-            const message_result = message.get().?;
+            const message_result: []u8 = message.get().?;
 
             self._private.connection.stream.writeAll(message_result) catch |err| {
-                // This error occurs when the client has disconnected.
-                // On Windows we get an exception in the console,
-                // but that's a Zig(-lang) problem. It was fixed in version 0.12.0.
-                // TODO: Check `error.ConnectionResetByPeer` on non-Windows operating systems.
-                if (err == error.Unexpected) {
+                // The connection was closed by the client.
+                if (err == error.ConnectionResetByPeer) {
                     break :message_loop;
                 }
                 return err;
@@ -172,7 +166,7 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const Callbacks.ClientCal
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
                 // The connection was not closed properly by this client.
-                OsReadError.NetNameDeleted, OsReadError.ConnectionTimedOut, OsReadError.ConnectionResetByPeer => {},
+                OsReadError.ConnectionResetByPeer, OsReadError.ConnectionTimedOut, OsReadError.SocketNotConnected => {},
                 // Something went wrong ...
                 else => cbs.error_.handle(self, err, @src()),
             }

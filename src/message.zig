@@ -67,10 +67,10 @@ pub const Message = struct {
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
     pub fn read(self: *Self, buffer: []const u8) anyerror!void {
-        var frame = Frame{ .allocator = self.allocator, .bytes = buffer };
+        var frame: Frame = Frame{ .allocator = self.allocator, .bytes = buffer };
         defer frame.deinit();
 
-        const data = try frame.read();
+        const data: []u8 = try frame.read();
 
         self._ready = frame.getFin();
         self._type = try Type.from(frame.getOpcode());
@@ -90,7 +90,7 @@ pub const Message = struct {
         var frame = Frame{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
         frame.setFin(last_message);
-        const frame_bytes = try frame.write(type_.into());
+        const frame_bytes: []u8 = try frame.write(type_.into());
         self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
         @memcpy(self._bytes.?, frame_bytes);
     }

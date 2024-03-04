@@ -14,6 +14,7 @@
 
 const builtin = @import("builtin");
 
+/// This function is used to check whether the `u64` data type can be used.
 pub inline fn is64bit() bool {
     switch (builtin.cpu.arch) {
         .x86_64, .aarch64, .aarch64_be => return true,
