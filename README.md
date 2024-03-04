@@ -1,19 +1,21 @@
 A simple WebSocket server for the Zig(-lang) programming language. Feel free to contribute and improve this implementation.
 
-> [!NOTE]
-> The current Zig(-lang) version **0.11.0** is supported.
+> [!IMPORTANT]
+> `v0.2.x` and older versions require Zig(-lang) **0.11.0**.
+> 
+> `v0.3.x` and newer versions require Zig(-lang) **v0.12.0**.
 
 > [!TIP]
 > Documentation can be found in the source code of our [examples](https://github.com/ws-zig/ws-server/tree/main/examples).
 
-## Installation
+## Installation (v0.2.x and older)
 - [Download the source code](https://github.com/ws-zig/ws-server/archive/refs/heads/main.zip).
 - Unzip the folder somewhere.
 - Open your `build.zig`.
 - Look for the following code:
 ```zig
     const exe = b.addExecutable(.{
-        .name = "...",
+        .name = "YOUR_PROJECT_NAME",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = .{ .path = "src/main.zig" },
@@ -49,8 +51,8 @@ fn _onText(client: *Client, data: []const u8) anyerror!void {
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
     defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.onText(&_onText);
@@ -74,4 +76,5 @@ client.on('message', (msg) => {
 ```
 
 ### Result:
-![image](https://github.com/ws-zig/ws-server/assets/154023155/a2dfc154-765e-4601-b8b4-4d62a0a7e19b)
+![image](https://github.com/ws-zig/ws-server/assets/154023155/1a209e56-c115-4f90-ab86-9c359ba90f5f)
+
