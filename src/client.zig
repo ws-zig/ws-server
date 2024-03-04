@@ -45,7 +45,7 @@ pub const Client = struct {
         defer message.deinit();
 
         message.write(type_, true, data) catch |err| {
-            if (err == error.Frame_Unsupported64bit) {
+            if (err == error.Frame_64bitRequired) {
                 // `u64` is not supported, so send the data as "chunks".
                 return try self._send(type_, data);
             }

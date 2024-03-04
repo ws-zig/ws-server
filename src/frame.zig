@@ -128,7 +128,7 @@ pub const Frame = struct {
             }
 
             if (Utils.CPU.is64bit() == false) {
-                return error.Frame_Unsupported64bit;
+                return error.Frame_64bitRequired;
             }
 
             self._payload_len =
@@ -175,7 +175,7 @@ pub const Frame = struct {
             extra_len += 4;
         } else {
             if (Utils.CPU.is64bit() == false) {
-                return error.Frame_Unsupported64bit;
+                return error.Frame_64bitRequired;
             }
 
             extra_data[1] = 127;
