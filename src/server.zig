@@ -31,6 +31,7 @@ const PrivateFields = struct {
 };
 
 pub const ServerConfig = struct {
+    compression: bool = false,
     buffer_size: usize = 65535,
 };
 
@@ -77,7 +78,7 @@ pub const Server = struct {
 
     fn _handleConnection(self: *const Self, connection: net.Server.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator.?, .connection = connection } };
-        const handshake_result: bool = ClientFile.handshake(&client, &self._private.clientCallbacks) catch |err| {
+        const handshake_result: bool = ClientFile.handshake(&client, self._private.config.compression, &self._private.clientCallbacks) catch |err| {
             self._private.clientCallbacks.error_.handle(&client, err, @src());
             client.closeImmediately();
             return;
@@ -86,7 +87,7 @@ pub const Server = struct {
             client.closeImmediately();
             return;
         }
-        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
+        ClientFile.handle(&client, self._private.config.compression, self._private.config.buffer_size, &self._private.clientCallbacks);
     }
 
     /// This function is called whenever a new connection to the server is established.

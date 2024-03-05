@@ -24,8 +24,9 @@ const Callbacks = @import("./callbacks.zig");
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const RESPONSE_BASIC = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
+const RESPONSE_BASIC_COMPRESS = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Extensions: permessage-deflate\r\nSec-WebSocket-Accept: ";
 
-pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
+pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
     //std.debug.print("=== handshake ===\n", .{});
 
     var headers = try _getHeaders(self._private.allocator, &self._private.connection.stream);
@@ -42,16 +43,27 @@ pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) anyerror!boo
     const base64_out: []const u8 = try _getBase64(self._private.allocator, sha1_out);
     defer self._private.allocator.free(base64_out);
 
-    const response_size = header_version.len + RESPONSE_BASIC.len + base64_out.len + 4;
-    const response: []u8 = try self._private.allocator.alloc(u8, response_size);
+    var response: []u8 = undefined;
+    if (compression == true) {
+        const response_size: usize = header_version.len + RESPONSE_BASIC_COMPRESS.len + base64_out.len + 4;
+        response = try self._private.allocator.alloc(u8, response_size);
+    } else {
+        const response_size: usize = header_version.len + RESPONSE_BASIC.len + base64_out.len + 4;
+        response = try self._private.allocator.alloc(u8, response_size);
+    }
     defer self._private.allocator.free(response);
 
     var dest_pos: usize = 0;
     var src_pos: usize = header_version.len;
     @memcpy(response[dest_pos..src_pos], header_version);
     dest_pos = src_pos;
-    src_pos += RESPONSE_BASIC.len;
-    @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC);
+    if (compression == true) {
+        src_pos += RESPONSE_BASIC_COMPRESS.len;
+        @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC_COMPRESS);
+    } else {
+        src_pos += RESPONSE_BASIC.len;
+        @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC);
+    }
     dest_pos = src_pos;
     src_pos += base64_out.len;
     @memcpy(response[dest_pos..src_pos], base64_out);
