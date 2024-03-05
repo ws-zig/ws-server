@@ -2,21 +2,25 @@ const std = @import("std");
 
 const ws = @import("ws-server");
 const Server = ws.Server;
+const Client = ws.Client;
+
+fn _onText(client: *Client, data: []const u8) anyerror!void {
+    std.debug.print("{s}\n", .{data});
+    try client.textAll("Hello Client :)!");
+}
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
     defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.setConfig(.{
-        // Unexpected errors may occur!
         .experimental = .{
             // Allow compression (perMessageDeflate).
-            .compression = true, // default: false
+            .compression = true,
         },
-        // A larger buffer allows a larger message to be received.
-        .buffer_size = 65535, // default: 65535
     });
+    server.onText(&_onText);
     try server.listen();
 }

@@ -74,10 +74,18 @@ fn _create_response_header(self: *Client, headers: HeaderResult) anyerror![]u8 {
     return result.toOwnedSlice();
 }
 
-pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
+fn _cancel(self: *Client) void {
+    // TODO
+    self._private.connection.stream.writer().writeAll("HTTP/1.1 400 Bad Request\r\n\r\n") catch return;
+}
+
+pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCallbacks) bool {
     //std.debug.print("=== handshake ===\n", .{});
 
-    var headers = try _getHeaders(self._private.allocator, &self._private.connection.stream);
+    var headers = _getHeaders(self._private.allocator, &self._private.connection.stream) catch {
+        _cancel(self);
+        return false;
+    };
     defer {
         var headers_iter = headers.iterator();
         while (headers_iter.next()) |kv| {
@@ -88,30 +96,43 @@ pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCall
     }
 
     if (cbs.handshake.handle(self, &headers) == false) {
+        _cancel(self);
         return false;
     }
 
     var header_extensions: u8 = 0b00000000;
     if (headers.get("Sec-WebSocket-Extensions")) |extensions| {
-        if (Utils.str.contains(extensions, "permessage-deflate") == true) {
+        if (compression == true) {
+            if (Utils.str.contains(extensions, "permessage-deflate") == false) {
+                _cancel(self);
+                return false;
+            }
+
             header_extensions |= 0b10000000;
-        } else if (compression == true) {
-            return error.Handshake_MissingPermessageDeflate;
         }
     } else if (compression == true) {
-        return error.Handshake_MissingSecWebSocketExtensions;
+        _cancel(self);
+        return false;
     }
-    const header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
+    const header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse {
+        _cancel(self);
+        return false;
+    };
 
     const sha1_out: [20]u8 = _getSha1(header_key);
-    const base64_out: []const u8 = try _getBase64(self._private.allocator, sha1_out);
+    const base64_out: []const u8 = _getBase64(self._private.allocator, sha1_out) catch {
+        _cancel(self);
+        return false;
+    };
     defer self._private.allocator.free(base64_out);
 
     const response_header_result: HeaderResult = .{ .extensions = header_extensions, .key = base64_out };
-    const response: []u8 = try _create_response_header(self, response_header_result);
+    const response: []u8 = _create_response_header(self, response_header_result) catch {
+        _cancel(self);
+        return false;
+    };
 
-    try self._private.connection.stream.writer().writeAll(response);
-
+    self._private.connection.stream.writer().writeAll(response) catch return false;
     return true;
 }
 

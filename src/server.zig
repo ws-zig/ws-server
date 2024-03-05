@@ -83,11 +83,7 @@ pub const Server = struct {
 
     fn _handleConnection(self: *const Self, connection: net.Server.Connection) void {
         var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator.?, .connection = connection } };
-        const handshake_result: bool = ClientFile.handshake(&client, self._private.config.experimental.compression, &self._private.clientCallbacks) catch |err| {
-            self._private.clientCallbacks.error_.handle(&client, err, @src());
-            client.closeImmediately();
-            return;
-        };
+        const handshake_result: bool = ClientFile.handshake(&client, self._private.config.experimental.compression, &self._private.clientCallbacks);
         if (handshake_result == false) {
             client.closeImmediately();
             return;
