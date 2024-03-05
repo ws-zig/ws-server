@@ -18,60 +18,98 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+const Utils = @import("./utils/lib.zig");
 const Client = @import("./client.zig").Client;
 const Callbacks = @import("./callbacks.zig");
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const RESPONSE_BASIC = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
-const RESPONSE_BASIC_COMPRESS = " 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Extensions: permessage-deflate\r\nSec-WebSocket-Accept: ";
+const HEADER_SPLIT = "\r\n";
+
+const HeaderResult = struct {
+    upgrade: [1][]const u8 = .{"websocket"},
+    connection: [1][]const u8 = .{"Upgrade"},
+    extensions: u8 = 0b00000000,
+    key: []const u8,
+};
+
+fn _create_response_header(self: *Client, headers: HeaderResult) anyerror![]u8 {
+    var result = std.ArrayList(u8).init(self._private.allocator.*);
+    defer result.deinit();
+
+    try result.appendSlice("HTTP/1.1 101 Switching Protocols\r\n");
+
+    try result.appendSlice("Upgrade: ");
+    for (headers.upgrade, 0..) |v, idx| {
+        if (idx > 0) {
+            try result.appendSlice("; ");
+        }
+        try result.appendSlice(v);
+    }
+    try result.appendSlice(HEADER_SPLIT);
+
+    try result.appendSlice("Connection: ");
+    for (headers.connection, 0..) |v, idx| {
+        if (idx > 0) {
+            try result.appendSlice("; ");
+        }
+        try result.appendSlice(v);
+    }
+    try result.appendSlice(HEADER_SPLIT);
+
+    if (headers.extensions != 0b00000000) {
+        try result.appendSlice("Sec-WebSocket-Extensions: ");
+        if ((headers.extensions & 0b10000000) != 0) {
+            try result.appendSlice("permessage-deflate");
+        }
+        try result.appendSlice(HEADER_SPLIT);
+    }
+
+    try result.appendSlice("Sec-WebSocket-Accept: ");
+    try result.appendSlice(headers.key);
+    try result.appendSlice(HEADER_SPLIT);
+
+    try result.appendSlice(HEADER_SPLIT); // End
+
+    return result.toOwnedSlice();
+}
 
 pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCallbacks) anyerror!bool {
     //std.debug.print("=== handshake ===\n", .{});
 
     var headers = try _getHeaders(self._private.allocator, &self._private.connection.stream);
-    defer headers.deinit();
+    defer {
+        var headers_iter = headers.iterator();
+        while (headers_iter.next()) |kv| {
+            self._private.allocator.free(kv.key_ptr.*);
+            self._private.allocator.free(kv.value_ptr.*);
+        }
+        headers.deinit();
+    }
 
     if (cbs.handshake.handle(self, &headers) == false) {
         return false;
     }
 
-    const header_version: []const u8 = headers.get("version").?;
+    var header_extensions: u8 = 0b00000000;
+    if (headers.get("Sec-WebSocket-Extensions")) |extensions| {
+        if (Utils.str.contains(extensions, "permessage-deflate") == true) {
+            header_extensions |= 0b10000000;
+        } else if (compression == true) {
+            return error.Handshake_MissingPermessageDeflate;
+        }
+    } else if (compression == true) {
+        return error.Handshake_MissingSecWebSocketExtensions;
+    }
     const header_key: []const u8 = headers.get("Sec-WebSocket-Key") orelse return error.Handshake_MissingSecWebSocketKey;
 
     const sha1_out: [20]u8 = _getSha1(header_key);
     const base64_out: []const u8 = try _getBase64(self._private.allocator, sha1_out);
     defer self._private.allocator.free(base64_out);
 
-    var response: []u8 = undefined;
-    if (compression == true) {
-        const response_size: usize = header_version.len + RESPONSE_BASIC_COMPRESS.len + base64_out.len + 4;
-        response = try self._private.allocator.alloc(u8, response_size);
-    } else {
-        const response_size: usize = header_version.len + RESPONSE_BASIC.len + base64_out.len + 4;
-        response = try self._private.allocator.alloc(u8, response_size);
-    }
-    defer self._private.allocator.free(response);
+    const response_header_result: HeaderResult = .{ .extensions = header_extensions, .key = base64_out };
+    const response: []u8 = try _create_response_header(self, response_header_result);
 
-    var dest_pos: usize = 0;
-    var src_pos: usize = header_version.len;
-    @memcpy(response[dest_pos..src_pos], header_version);
-    dest_pos = src_pos;
-    if (compression == true) {
-        src_pos += RESPONSE_BASIC_COMPRESS.len;
-        @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC_COMPRESS);
-    } else {
-        src_pos += RESPONSE_BASIC.len;
-        @memcpy(response[dest_pos..src_pos], RESPONSE_BASIC);
-    }
-    dest_pos = src_pos;
-    src_pos += base64_out.len;
-    @memcpy(response[dest_pos..src_pos], base64_out);
-    dest_pos = src_pos;
-    src_pos += 4;
-    @memcpy(response[dest_pos..src_pos], "\r\n\r\n");
-
-    //std.debug.print("=== send header ===\n{s}\n", .{response});
     try self._private.connection.stream.writer().writeAll(response);
 
     return true;
@@ -82,39 +120,28 @@ fn _getHeaders(allocator: *const Allocator, stream: *const std.net.Stream) anyer
 
     var first_header_line: bool = true;
     while (true) {
-        var header_line_array = std.ArrayList(u8).init(allocator.*);
-        defer header_line_array.deinit();
-        try stream.reader().streamUntilDelimiter(header_line_array.writer(), '\n', std.math.maxInt(usize));
-        var header_line: []u8 = try header_line_array.toOwnedSlice();
-        header_line = header_line[0..(header_line.len - 1)];
+        const line: []u8 = try stream.reader().readUntilDelimiterAlloc(allocator.*, '\n', std.math.maxInt(usize));
+        defer allocator.free(line);
 
-        // End of header
-        if (header_line.len == 0) {
+        if (line.len <= 5) {
             break;
         }
 
         if (first_header_line == true) {
             first_header_line = false;
-
-            var header_line_iter = std.mem.split(u8, header_line, " ");
-            const method: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingMethod;
-            const uri: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingUri;
-            const version: []const u8 = header_line_iter.next() orelse return error.Handshake_MissingVersion;
-
-            //std.debug.print("header: {s} {s} {s}\n", .{ method, uri, version });
-
-            try result.put("method", method);
-            try result.put("uri", uri);
-            try result.put("version", version);
-        } else {
-            var header_line_iter = std.mem.split(u8, header_line, ": ");
-            const key: []const u8 = header_line_iter.next().?;
-            const value: []const u8 = header_line_iter.next().?;
-
-            //std.debug.print("header: {s}({d}):{s}({d})\n", .{ key, key.len, value, value.len });
-
-            try result.put(key, value);
+            continue;
         }
+
+        var line_iter = std.mem.split(u8, line[0..(line.len - 1)], ": ");
+        const key: []const u8 = line_iter.next() orelse continue;
+        const value: []const u8 = line_iter.next() orelse continue;
+
+        const key_cpy: []u8 = try allocator.alloc(u8, key.len);
+        @memcpy(key_cpy, key);
+        const value_cpy: []u8 = try allocator.alloc(u8, value.len);
+        @memcpy(value_cpy, value);
+
+        try result.put(key_cpy, value_cpy);
     }
 
     return result;

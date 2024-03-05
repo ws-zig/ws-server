@@ -12,5 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub const CPU = @import("./cpu.zig");
-pub const str = @import("./str.zig");
+/// Checks if a `data` exists in `self`.
+///
+/// Computes in **O(n²)** time.
+pub fn contains(self: []const u8, data: []const u8) bool {
+    var result = false;
+    outer: for (0..self.len) |xidx| {
+        if (self.len < (xidx + data.len)) {
+            break :outer;
+        }
+
+        for (data, 0..) |byte, yidx| {
+            if (self[xidx + yidx] != byte) {
+                continue :outer;
+            }
+        }
+
+        result = true;
+        break :outer;
+    }
+    return result;
+}
