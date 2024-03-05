@@ -64,11 +64,11 @@ pub const Frame = struct {
 
     const Self = @This();
 
-    pub inline fn getFin(self: *const Self) bool {
+    pub inline fn isLastFrame(self: *const Self) bool {
         return self._fin;
     }
 
-    pub inline fn setFin(self: *Self, state: bool) void {
+    pub inline fn setLastFrame(self: *Self, state: bool) void {
         self._fin = state;
     }
 
@@ -170,7 +170,7 @@ pub const Frame = struct {
         }
     }
 
-    fn _decompress(self: *Self, data: []u8) anyerror![]u8 {
+    fn _decompress(self: *const Self, data: []u8) anyerror![]u8 {
         var stream = std.io.fixedBufferStream(data);
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
@@ -179,18 +179,20 @@ pub const Frame = struct {
         return result.toOwnedSlice();
     }
 
-    fn _compress(self: *Self) anyerror!void {
+    fn _compress(self: *const Self, data: []const u8) anyerror![]u8 {
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
         var comp = try std.compress.flate.compressor(result.writer(), .{});
-        _ = try comp.write(self.bytes);
+        _ = try comp.write(data);
         try comp.finish();
-        self.bytes = try result.toOwnedSlice();
+        return try result.toOwnedSlice();
     }
 
     pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
+        var bytes_compressed = false;
         if (self._rsv1 == true) {
-            try self._compress();
+            self.bytes = try self._compress(self.bytes);
+            bytes_compressed = true;
         }
 
         var extra_len: u8 = 0;
@@ -231,6 +233,9 @@ pub const Frame = struct {
         self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.len);
         @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
         @memcpy(self._payload_data.?[extra_len..], self.bytes);
+        if (bytes_compressed == true) {
+            self.allocator.free(self.bytes);
+        }
         return self._payload_data.?;
     }
 

@@ -46,7 +46,8 @@ pub const Client = struct {
         var message = Message{ .allocator = self._private.allocator };
         defer message.deinit();
 
-        message.write(type_, true, data, self._private.compression) catch |err| {
+        message.setLastMessage(true);
+        message.write(type_, data, self._private.compression) catch |err| {
             if (err == error.Frame_64bitRequired) {
                 // `u64` is not supported, so send the data as "chunks".
                 return try self._send(type_, data);
@@ -78,12 +79,13 @@ pub const Client = struct {
 
             if (message_idx > 0) {
                 if (data_left > 65531) {
-                    try message.write(MessageType.Continue, false, data[message_idx..(message_idx + 65531)], self._private.compression);
+                    try message.write(MessageType.Continue, data[message_idx..(message_idx + 65531)], self._private.compression);
                 } else {
-                    try message.write(MessageType.Continue, true, data[message_idx..(message_idx + data_left)], self._private.compression);
+                    message.setLastMessage(true);
+                    try message.write(MessageType.Continue, data[message_idx..(message_idx + data_left)], self._private.compression);
                 }
             } else {
-                try message.write(type_, false, data[0..65531], self._private.compression);
+                try message.write(type_, data[0..65531], self._private.compression);
             }
             const message_result: []u8 = message.get().?;
 
@@ -186,7 +188,7 @@ pub fn handle(self: *Client, compression: bool, buffer_size: usize, cbs: *const 
         };
 
         // Tells us if the message has all the data and can now be processed.
-        if (message.?.isReady() == false) {
+        if (message.?.isLastMessage() == false) {
             continue :message_loop;
         }
 
