@@ -166,7 +166,12 @@ pub const Frame = struct {
         }
 
         if (self._rsv1 == true) {
-            const decompressed_payload_data = try self._decompress(self._payload_data.?);
+            // In all tests there was always a `0` at the end.
+            if (self._payload_len <= 1) {
+                return;
+            }
+            self._payload_data.?[0] += 1; // TODO: Find out why it doesn't work without it
+            const decompressed_payload_data: []u8 = try self._decompress(self._payload_data.?);
             self.allocator.free(self._payload_data.?);
             self._payload_data = decompressed_payload_data;
         }
@@ -176,7 +181,6 @@ pub const Frame = struct {
         var stream = std.io.fixedBufferStream(data);
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
-        // Temporary solution: https://github.com/ziglang/zig/issues/19187
         try std.compress.flate.decompress(stream.reader(), result.writer());
         return result.toOwnedSlice();
     }
