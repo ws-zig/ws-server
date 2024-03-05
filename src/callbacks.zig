@@ -28,15 +28,15 @@ pub const ClientPingFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPongFn = ?*const fn (client: *Client) anyerror!void;
 
 pub const ClientCallbacks = struct {
-    handshake: ClientHandshake = ClientHandshake{},
-    disconnect: ClientDisconnect = ClientDisconnect{},
-    error_: ClientError = ClientError{},
+    handshake: ClientHandshake = .{},
+    disconnect: ClientDisconnect = .{},
+    error_: ClientError = .{},
 
-    text: ClientText = ClientText{},
-    binary: ClientBinary = ClientBinary{},
-    close: ClientClose = ClientClose{},
-    ping: ClientPing = ClientPing{},
-    pong: ClientPong = ClientPong{},
+    text: ClientText = .{},
+    binary: ClientBinary = .{},
+    close: ClientClose = .{},
+    ping: ClientPing = .{},
+    pong: ClientPong = .{},
 };
 
 const ClientHandshake = struct {

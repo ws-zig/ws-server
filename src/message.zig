@@ -71,7 +71,7 @@ pub const Message = struct {
 
     /// This function is used to read a frame. If do you need the data, use `get()`.
     pub fn read(self: *Self, buffer: []const u8) anyerror!void {
-        var frame: Frame = Frame{ .allocator = self.allocator, .bytes = buffer };
+        var frame: Frame = .{ .allocator = self.allocator, .bytes = buffer };
         defer frame.deinit();
 
         const data: []u8 = try frame.read();
@@ -91,7 +91,7 @@ pub const Message = struct {
     }
 
     pub fn write(self: *Self, comptime type_: Type, data: []const u8, compression: bool) anyerror!void {
-        var frame = Frame{ .allocator = self.allocator, .bytes = data };
+        var frame: Frame = .{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
         frame.setLastFrame(self._lastMessage);
         frame.setCompression(compression);

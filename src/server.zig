@@ -25,7 +25,7 @@ pub const ServerConfigExperimental = struct {
 };
 
 pub const ServerConfig = struct {
-    experimental: ServerConfigExperimental = ServerConfigExperimental{},
+    experimental: ServerConfigExperimental = .{},
 
     buffer_size: usize = 65535,
 };
@@ -35,9 +35,9 @@ const PrivateFields = struct {
     addr: []const u8,
     port: u16 = 8080,
 
-    config: ServerConfig = ServerConfig{},
+    config: ServerConfig = .{},
 
-    clientCallbacks: Callbacks.ClientCallbacks = Callbacks.ClientCallbacks{},
+    clientCallbacks: Callbacks.ClientCallbacks = .{},
 };
 
 pub const Server = struct {
@@ -48,7 +48,7 @@ pub const Server = struct {
 
     /// Create a new server to connect to.
     pub fn create(allocator: *const Allocator, addr: []const u8, port: u16) Self {
-        return Self{ ._private = .{ .allocator = allocator, .addr = addr, .port = port } };
+        return .{ ._private = .{ .allocator = allocator, .addr = addr, .port = port } };
     }
 
     /// Set advanced settings.

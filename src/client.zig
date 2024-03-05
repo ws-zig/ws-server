@@ -43,7 +43,7 @@ pub const Client = struct {
     }
 
     fn _sendAll(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
-        var message = Message{ .allocator = self._private.allocator };
+        var message: Message = .{ .allocator = self._private.allocator };
         defer message.deinit();
 
         message.setLastMessage(true);
@@ -74,7 +74,7 @@ pub const Client = struct {
         var message_idx: usize = 0;
         message_loop: while (true) {
             const data_left: usize = data.len - message_idx;
-            var message = Message{ .allocator = self._private.allocator };
+            var message: Message = .{ .allocator = self._private.allocator };
             defer message.deinit();
 
             if (message_idx > 0) {
@@ -180,7 +180,7 @@ pub fn handle(self: *Client, compression: bool, buffer_size: usize, cbs: *const 
         };
 
         if (message == null) {
-            message = Message{ .allocator = self._private.allocator };
+            message = .{ .allocator = self._private.allocator };
         }
         message.?.read(buffer[0..buffer_len]) catch |err| {
             cbs.error_.handle(self, err, @src());
