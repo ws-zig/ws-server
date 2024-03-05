@@ -166,7 +166,9 @@ pub const Frame = struct {
         }
 
         if (self._rsv1 == true) {
-            self._payload_data = try self._decompress(self._payload_data.?);
+            const decompressed_payload_data = try self._decompress(self._payload_data.?);
+            self.allocator.free(self._payload_data.?);
+            self._payload_data = decompressed_payload_data;
         }
     }
 
