@@ -118,16 +118,17 @@ pub const Frame = struct {
     fn _parsePayload(self: *Self) anyerror!void {
         var extra_len: u8 = 2;
         if (self._payload_len == 126) {
+            extra_len += 2;
             // A minimum of 4 bytes is required.
-            if (self.bytes.len < 4) {
+            if (self.bytes.len < extra_len) {
                 return error.Frame_TooFewBytes;
             }
 
             self._payload_len = @as(u16, self.bytes[2]) << 8 | self.bytes[3];
-            extra_len += 2;
         } else if (self._payload_len == 127) {
-            // A minimum of 10 bytes is required
-            if (self.bytes.len < 10) {
+            extra_len += 8;
+            // A minimum of 10 bytes is required.
+            if (self.bytes.len < extra_len) {
                 return error.Frame_TooFewBytes;
             }
 
@@ -144,16 +145,21 @@ pub const Frame = struct {
                 @as(usize, self.bytes[7]) << 16 |
                 @as(usize, self.bytes[8]) << 8 |
                 self.bytes[9];
-            extra_len += 8;
         }
 
         var masking_key: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
         if (self._masked == true) {
-            masking_key = self.bytes[extra_len..(4 + extra_len)][0..4].*;
+            // A minimum of 6|8|12 bytes is required.
+            if (self.bytes.len < (extra_len + 4)) {
+                return error.Frame_TooFewBytes;
+            }
+
+            masking_key = self.bytes[extra_len..][0..4].*;
+            extra_len += 4;
         }
 
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
-        @memcpy(self._payload_data.?, self.bytes[(4 + extra_len)..(4 + extra_len + self._payload_len)]);
+        @memcpy(self._payload_data.?, self.bytes[(extra_len)..(extra_len + self._payload_len)]);
 
         for (self._payload_data.?, 0..) |v, i| {
             self._payload_data.?[i] = (v ^ masking_key[i % 4]);
@@ -164,11 +170,11 @@ pub const Frame = struct {
         }
     }
 
-    // TODO: What's wrong?
     fn _decompress(self: *Self, data: []u8) anyerror![]u8 {
         var stream = std.io.fixedBufferStream(data);
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
+        // Temporary solution: https://github.com/ziglang/zig/issues/19187
         try std.compress.flate.decompress(stream.reader(), result.writer());
         return result.toOwnedSlice();
     }
@@ -189,18 +195,12 @@ pub const Frame = struct {
 
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        extra_data[0] = opcode | 0b00000000;
         if (self._fin == true) {
-            if (self._rsv1 == true) {
-                extra_data[0] = opcode | 0b11000000;
-            } else {
-                extra_data[0] = opcode | 0b10000000;
-            }
-        } else {
-            if (self._rsv1 == true) {
-                extra_data[0] = opcode | 0b01000000;
-            } else {
-                extra_data[0] = opcode | 0b00000000;
-            }
+            extra_data[0] |= 0b10000000;
+        }
+        if (self._rsv1 == true) {
+            extra_data[0] |= 0b01000000;
         }
 
         if (self.bytes.len <= 125) {
