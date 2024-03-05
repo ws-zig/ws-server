@@ -1,4 +1,23 @@
 # Changelog
+## [v0.3.0](https://github.com/ws-zig/ws-server/tree/v0.3.0) (2024-03-05 UTC+1)
+> [!NOTE]
+> The upcoming Zig(-lang) version [**0.12.0**](https://github.com/ziglang/zig/tree/0b744da844e4172ec0c695098e67ab2a7184c5f0) is supported.
+
+**Changed**
+- The required Zig(-lang) version has been increased to **0.12.0**.
+- The callback argument `data: []const u8` has been changed to `data: ?[]const u8`.
+
+**Added**
+- `experimental` server configuration.
+- - All experimental configurations should only be used for testing purposes!
+- [Experimental] Support for compression (perMessageDeflate).
+- - Use `server.setConfig(.{ .experimental = .{ .compression = true } })` to enable compression.
+  - The header `Sec-WebSocket-Extensions: permessage-deflate` is required during the handshake, otherwise the client will be disconnected!
+
+**Other**
+- Many improvements, bug fixes and more.
+- - [Click here to compare all changes.](https://github.com/ws-zig/ws-server/compare/v0.2.1...v0.3.0)
+
 ## [v0.2.1](https://github.com/ws-zig/ws-server/tree/v0.2.1) (2024-03-04 UTC+1)
 > [!NOTE]
 > The current Zig(-lang) version [**0.11.0**](https://github.com/ziglang/zig/releases/tag/0.11.0) is supported.
