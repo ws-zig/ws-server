@@ -79,9 +79,7 @@ fn _cancel(self: *Client) void {
     self._private.connection.stream.writer().writeAll("HTTP/1.1 400 Bad Request\r\n\r\n") catch return;
 }
 
-pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCallbacks) bool {
-    //std.debug.print("=== handshake ===\n", .{});
-
+pub fn handle(self: *Client, cbs: *const Callbacks.ClientCallbacks) bool {
     var headers = _getHeaders(self._private.allocator, &self._private.connection.stream) catch {
         _cancel(self);
         return false;
@@ -102,7 +100,7 @@ pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCall
 
     var header_extensions: u8 = 0b00000000;
     if (headers.get("Sec-WebSocket-Extensions")) |extensions| {
-        if (compression == true) {
+        if (self._private.compression == true) {
             if (Utils.str.contains(extensions, "permessage-deflate") == false) {
                 _cancel(self);
                 return false;
@@ -110,7 +108,7 @@ pub fn handle(self: *Client, compression: bool, cbs: *const Callbacks.ClientCall
 
             header_extensions |= 0b10000000;
         }
-    } else if (compression == true) {
+    } else if (self._private.compression == true) {
         _cancel(self);
         return false;
     }

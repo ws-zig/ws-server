@@ -20,11 +20,11 @@ const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
 const Callbacks = @import("./callbacks.zig");
 
-pub const ServerConfigExperimental = struct {
+const ServerConfigExperimental = struct {
     compression: bool = false,
 };
 
-pub const ServerConfig = struct {
+const ServerConfig = struct {
     experimental: ServerConfigExperimental = .{},
 
     buffer_size: usize = 65535,
@@ -82,13 +82,19 @@ pub const Server = struct {
     }
 
     fn _handleConnection(self: *const Self, connection: net.Server.Connection) void {
-        var client = ClientFile.Client{ ._private = .{ .allocator = self._private.allocator.?, .connection = connection } };
-        const handshake_result: bool = ClientFile.handshake(&client, self._private.config.experimental.compression, &self._private.clientCallbacks);
+        var client = ClientFile.Client{
+            ._private = .{
+                .allocator = self._private.allocator.?,
+                .connection = connection,
+                .compression = self._private.config.experimental.compression,
+            },
+        };
+        const handshake_result: bool = ClientFile.handshake(&client, &self._private.clientCallbacks);
         if (handshake_result == false) {
             client.closeImmediately();
             return;
         }
-        ClientFile.handle(&client, self._private.config.experimental.compression, self._private.config.buffer_size, &self._private.clientCallbacks);
+        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
     }
 
     /// This function is called whenever a new connection to the server is established.
@@ -142,7 +148,7 @@ pub const Server = struct {
     ///
     /// ### Example
     /// ```zig
-    /// fn _onText(client: *Client, data: []const u8) anyerror!void {
+    /// fn _onText(client: *Client, data: &[]const u8) anyerror!void {
     ///     // ...
     /// }
     /// // ...
@@ -157,7 +163,7 @@ pub const Server = struct {
     ///
     /// ### Example
     /// ```zig
-    /// fn _onBinary(client: *Client, data: []const u8) anyerror!void {
+    /// fn _onBinary(client: *Client, data: &[]const u8) anyerror!void {
     ///     // ...
     /// }
     /// // ...

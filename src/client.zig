@@ -24,11 +24,10 @@ const Callbacks = @import("./callbacks.zig");
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.Server.Connection,
+    compression: bool,
 
     // true = Connection is closed by the server. Breaks the message loop.
     close_conn: bool = false,
-
-    compression: bool = false,
 };
 
 pub const Client = struct {
@@ -154,9 +153,7 @@ pub const Client = struct {
 
 pub const handshake = @import("./handshake.zig").handle;
 
-pub fn handle(self: *Client, compression: bool, buffer_size: usize, cbs: *const Callbacks.ClientCallbacks) void {
-    self._private.compression = compression;
-
+pub fn handle(self: *Client, buffer_size: usize, cbs: *const Callbacks.ClientCallbacks) void {
     var message: ?Message = null;
     defer if (message != null) {
         message.?.deinit();
