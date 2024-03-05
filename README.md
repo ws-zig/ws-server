@@ -74,9 +74,11 @@ const ws = @import("ws-server");
 const Server = ws.Server;
 const Client = ws.Client;
 
-fn _onText(client: *Client, data: []const u8) anyerror!void {
-    std.debug.print("{s}\n", .{data});
-    try client.textAll("Hello!");
+fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
+    if (data) |data_result| {
+        std.debug.print("{s}\n", .{data_result});
+    }
+    try client.textAll("Hello client!");
 }
 
 pub fn main() anyerror!void {
@@ -85,6 +87,12 @@ pub fn main() anyerror!void {
     const allocator = gpa.allocator();
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
+    server.setConfig(.{ // Set some custom configurations.
+        .experimental = .{
+            // Allow compression (perMessageDeflate).
+            .compression = true,
+        },
+    });
     server.onText(&_onText);
     try server.listen();
 }
@@ -94,17 +102,19 @@ pub fn main() anyerror!void {
 For testing we use [NodeJS](https://nodejs.org/) with the [`ws`](https://www.npmjs.com/package/ws) package.
 ```js
 const { WebSocket } = require('ws');
-const client = new WebSocket("ws://127.0.0.1:8080");
+const client = new WebSocket("ws://127.0.0.1:8080", {
+    perMessageDeflate: true,
+});
 
 client.on('open', () => {
-  client.send("Hello server!");
+    client.send("Hello server!");
 });
 
 client.on('message', (msg) => {
-  console.log(msg.toString());
+    console.log(msg.toString());
 });
 ```
 
 ### Result:
-![image](https://github.com/ws-zig/ws-server/assets/154023155/1a209e56-c115-4f90-ab86-9c359ba90f5f)
+![image](https://github.com/ws-zig/ws-server/assets/154023155/7bab8949-8da6-4906-9cbb-95eaaf67f978)
 

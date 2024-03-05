@@ -4,9 +4,11 @@ const ws = @import("ws-server");
 const Server = ws.Server;
 const Client = ws.Client;
 
-fn _onText(client: *Client, data: []const u8) anyerror!void {
-    std.debug.print("{s}\n", .{data});
-    try client.textAll("Hello Client :)!");
+fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
+    if (data) |data_result| {
+        std.debug.print("{s}\n", .{data_result});
+    }
+    try client.textAll("Hello client!");
 }
 
 pub fn main() anyerror!void {

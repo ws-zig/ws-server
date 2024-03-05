@@ -26,14 +26,18 @@ fn _onDisconnect(client: *Client) anyerror!void {
 }
 
 // When a text message has been received from the client, this function is called.
-fn _onText(client: *Client, data: []const u8) anyerror!void {
-    std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
+fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
+    if (data) |data_result| {
+        std.debug.print("MESSAGE RECEIVED: {s}\n", .{data_result});
+    }
     try client.textAll("Hello client! :)");
 }
 
 // When a binary message has been received from the client, this function is called.
-fn _onBinary(client: *Client, data: []const u8) anyerror!void {
-    std.debug.print("MESSAGE RECEIVED: {s}\n", .{data});
+fn _onBinary(client: *Client, data: ?[]const u8) anyerror!void {
+    if (data) |data_result| {
+        std.debug.print("MESSAGE RECEIVED: {s}\n", .{data_result});
+    }
     try client.binaryAll("Hello client! :)");
 }
 

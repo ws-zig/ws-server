@@ -80,10 +80,10 @@ pub const Frame = struct {
         return self._opcode;
     }
 
-    pub fn read(self: *Self) anyerror![]u8 {
+    pub fn read(self: *Self) anyerror!?[]u8 {
         try self._parseFlags();
         try self._parsePayload();
-        return self._payload_data.?;
+        return self._payload_data;
     }
 
     fn _parseFlags(self: *Self) anyerror!void {
@@ -116,6 +116,10 @@ pub const Frame = struct {
     }
 
     fn _parsePayload(self: *Self) anyerror!void {
+        if (self._payload_len == 0) {
+            return;
+        }
+
         var extra_len: u8 = 2;
         if (self._payload_len == 126) {
             extra_len += 2;
@@ -166,11 +170,15 @@ pub const Frame = struct {
         }
 
         if (self._rsv1 == true) {
-            // In all tests there was always a `0` at the end.
+            // If there is only one byte (0x00), this is the end of the compressed data.
             if (self._payload_len <= 1) {
+                self.allocator.free(self._payload_data.?);
+                self._payload_data = null;
                 return;
             }
-            self._payload_data.?[0] += 1; // TODO: Find out why it doesn't work without it
+
+            // Set missing bfinal bit.
+            self._payload_data.?[0] |= 0b00000001;
             const decompressed_payload_data: []u8 = try self._decompress(self._payload_data.?);
             self.allocator.free(self._payload_data.?);
             self._payload_data = decompressed_payload_data;

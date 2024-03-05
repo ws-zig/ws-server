@@ -21,8 +21,8 @@ pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *std.StringH
 pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
 
-pub const ClientTextFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
-pub const ClientBinaryFn = ?*const fn (client: *Client, data: []const u8) anyerror!void;
+pub const ClientTextFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
+pub const ClientBinaryFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
 pub const ClientCloseFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPingFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientPongFn = ?*const fn (client: *Client) anyerror!void;
@@ -91,7 +91,7 @@ const ClientText = struct {
 
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
-            self.handler.?(client, data.?) catch |err| {
+            self.handler.?(client, data) catch |err| {
                 std.debug.print("Text callback failed: {any}\n", .{err});
             };
         }
@@ -105,7 +105,7 @@ const ClientBinary = struct {
 
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
-            self.handler.?(client, data.?) catch |err| {
+            self.handler.?(client, data) catch |err| {
                 std.debug.print("Binary callback failed: {any}\n", .{err});
             };
         }

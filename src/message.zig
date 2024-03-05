@@ -69,25 +69,26 @@ pub const Message = struct {
         return self._type;
     }
 
-    /// This function is used to read a frame. If do you need the data, use `get()`.
     pub fn read(self: *Self, buffer: []const u8) anyerror!void {
         var frame: Frame = .{ .allocator = self.allocator, .bytes = buffer };
         defer frame.deinit();
 
-        const data: []u8 = try frame.read();
+        const data: ?[]u8 = try frame.read();
 
         self._lastMessage = frame.isLastFrame();
         self._type = try Type.from(frame.getOpcode());
 
-        var old_bytes_len: usize = 0;
-        if (self._bytes == null) {
-            self._bytes = try self.allocator.alloc(u8, data.len);
-        } else {
-            old_bytes_len = self._bytes.?.len;
-            self._bytes = try self.allocator.realloc(self._bytes.?, old_bytes_len + data.len);
-        }
+        if (data) |data_result| {
+            var old_bytes_len: usize = 0;
+            if (self._bytes == null) {
+                self._bytes = try self.allocator.alloc(u8, data_result.len);
+            } else {
+                old_bytes_len = self._bytes.?.len;
+                self._bytes = try self.allocator.realloc(self._bytes.?, old_bytes_len + data_result.len);
+            }
 
-        @memcpy(self._bytes.?[old_bytes_len..], data);
+            @memcpy(self._bytes.?[old_bytes_len..], data_result);
+        }
     }
 
     pub fn write(self: *Self, comptime type_: Type, data: []const u8, compression: bool) anyerror!void {
