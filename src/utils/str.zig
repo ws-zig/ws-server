@@ -16,7 +16,6 @@
 ///
 /// Computes in **O(n²)** time.
 pub fn contains(self: []const u8, data: []const u8) bool {
-    var result = false;
     outer: for (0..self.len) |xidx| {
         if (self.len < (xidx + data.len)) {
             break :outer;
@@ -28,8 +27,7 @@ pub fn contains(self: []const u8, data: []const u8) bool {
             }
         }
 
-        result = true;
-        break :outer;
+        return true;
     }
-    return result;
+    return false;
 }
