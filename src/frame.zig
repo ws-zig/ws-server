@@ -186,27 +186,27 @@ pub const Frame = struct {
     }
 
     fn _decompress(self: *const Self, data: []u8) anyerror![]u8 {
-        var stream = std.io.fixedBufferStream(data);
+        var data_stream = std.io.fixedBufferStream(data);
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
-        try std.compress.flate.decompress(stream.reader(), result.writer());
+        try std.compress.flate.decompress(data_stream.reader(), result.writer());
         return result.toOwnedSlice();
     }
 
     fn _compress(self: *const Self, data: []const u8) anyerror![]u8 {
+        var data_stream = std.io.fixedBufferStream(data);
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
-        var comp = try std.compress.flate.compressor(result.writer(), .{});
-        _ = try comp.write(data);
-        try comp.finish();
+        try std.compress.flate.compress(data_stream.reader(), result.writer(), .{});
         return try result.toOwnedSlice();
     }
 
     pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
         var bytes_compressed = false;
-        if (self._rsv1 == true) {
-            self.bytes = try self._compress(self.bytes);
-            bytes_compressed = true;
+        defer {
+            if (bytes_compressed == true) {
+                self.allocator.free(self.bytes);
+            }
         }
 
         var extra_len: u8 = 0;
@@ -217,6 +217,9 @@ pub const Frame = struct {
         }
         if (self._rsv1 == true) {
             extra_data[0] |= 0b01000000;
+
+            self.bytes = try self._compress(self.bytes);
+            bytes_compressed = true;
         }
 
         if (self.bytes.len <= 125) {
@@ -247,9 +250,6 @@ pub const Frame = struct {
         self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.len);
         @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
         @memcpy(self._payload_data.?[extra_len..], self.bytes);
-        if (bytes_compressed == true) {
-            self.allocator.free(self.bytes);
-        }
         return self._payload_data.?;
     }
 
