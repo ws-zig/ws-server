@@ -106,7 +106,8 @@ pub const Message = struct {
         defer frame.deinit();
         frame.setLastFrame(self._lastMessage);
         frame.setCompression(compression);
-        const frame_bytes: []u8 = try frame.write(self._type.?.into());
+        frame.setOpcode(self._type.?.into());
+        const frame_bytes: []u8 = try frame.write();
         self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
         @memcpy(self._bytes.?, frame_bytes);
     }

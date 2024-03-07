@@ -80,6 +80,10 @@ pub const Frame = struct {
         return self._opcode;
     }
 
+    pub inline fn setOpcode(self: *Self, value: u8) void {
+        self._opcode = value;
+    }
+
     pub fn read(self: *Self) anyerror!?[]u8 {
         try self._parseFlags();
         try self._parsePayload();
@@ -201,7 +205,7 @@ pub const Frame = struct {
         return try result.toOwnedSlice();
     }
 
-    pub fn write(self: *Self, opcode: u8) anyerror![]u8 {
+    pub fn write(self: *Self) anyerror![]u8 {
         var bytes_compressed = false;
         defer {
             if (bytes_compressed == true) {
@@ -211,7 +215,7 @@ pub const Frame = struct {
 
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        extra_data[0] = opcode | 0b00000000;
+        extra_data[0] = self._opcode | 0b00000000;
         if (self._fin == true) {
             extra_data[0] |= 0b10000000;
         }
