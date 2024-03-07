@@ -46,6 +46,8 @@ pub const Type = enum(u8) {
 
 pub const Message = struct {
     allocator: *const Allocator,
+    max_msg_size: usize = 0,
+
     _bytes: ?[]u8 = null,
     // Tells us whether the message is complete or whether we need to wait for new data.
     _lastMessage: bool = false,
@@ -90,9 +92,11 @@ pub const Message = struct {
                 self._bytes = try self.allocator.alloc(u8, data_result.len);
             } else {
                 old_bytes_len = self._bytes.?.len;
+                if ((old_bytes_len + data_result.len) > self.max_msg_size) {
+                    return error.MaxMsgSizeExceeded;
+                }
                 self._bytes = try self.allocator.realloc(self._bytes.?, old_bytes_len + data_result.len);
             }
-
             @memcpy(self._bytes.?[old_bytes_len..], data_result);
         }
     }

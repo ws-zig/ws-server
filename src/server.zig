@@ -17,26 +17,17 @@ const net = std.net;
 const Allocator = std.mem.Allocator;
 
 const Utils = @import("./utils/lib.zig");
+const Config = @import("./config.zig").Config;
 const ClientFile = @import("./client.zig");
 const HandshakeFile = @import("./handshake.zig");
 const CallbacksFile = @import("./callbacks.zig");
-
-const ServerConfigExperimental = struct {
-    compression: bool = false,
-};
-
-const ServerConfig = struct {
-    experimental: ServerConfigExperimental = .{},
-
-    buffer_size: usize = 65535,
-};
 
 const PrivateFields = struct {
     allocator: ?*const Allocator = null,
     addr: []const u8,
     port: u16 = 8080,
 
-    config: ServerConfig = .{},
+    config: Config = .{},
 
     callbacks: CallbacksFile.Callbacks = .{},
 };
@@ -53,7 +44,7 @@ pub const Server = struct {
     }
 
     /// Set advanced settings.
-    pub fn setConfig(self: *Self, config: ServerConfig) void {
+    pub fn setConfig(self: *Self, config: Config) void {
         self._private.config = config;
     }
 
@@ -62,13 +53,17 @@ pub const Server = struct {
         if (self._private.allocator == null) {
             return error.MissingAllocator;
         }
-        if (self._private.config.buffer_size > 65535) {
+        if (self._private.config.msg_buffer_size > 65535) {
             if (Utils.CPU.is64bit() == false) {
                 // On non-64-bit architectures,
                 // you cannot process messages larger than 65535 bytes.
                 // To prevent unexpected behavior, the size of the buffer should be reduced.
-                return error.BufferSizeExceeded;
+                return error.MsgBufferSizeExceeded;
             }
+        }
+        if (self._private.config.max_msg_size < self._private.config.msg_buffer_size) {
+            // The `max_msg_size` must equal to or be larger than `msg_buffer_size`.
+            return error.MaxMsgSizeTooLow;
         }
 
         const address: net.Address = try net.Address.parseIp(self._private.addr, self._private.port);
@@ -94,6 +89,7 @@ pub const Server = struct {
                 .allocator = self._private.allocator.?,
                 .connection = connection,
                 .compression = self._private.config.experimental.compression,
+                .max_msg_size = self._private.config.max_msg_size,
             },
         };
         var handshake: HandshakeFile.Handshake = .{
@@ -105,7 +101,7 @@ pub const Server = struct {
             return;
         };
         if (handshake_result == true) {
-            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.callbacks) catch |err| {
+            ClientFile.handle(&client, self._private.config.msg_buffer_size, &self._private.callbacks) catch |err| {
                 self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
                 return;
             };

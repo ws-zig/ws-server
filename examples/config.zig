@@ -10,13 +10,16 @@ pub fn main() anyerror!void {
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.setConfig(.{
-        // Unexpected errors may occur!
+        // Specifies how large a single received message can be.
+        .msg_buffer_size = 65535, // default: 65535
+        // Specifies how large a complete message can be.
+        .max_msg_size = 131070, // default: std.math.maxInt(u32)
+
+        // Experimental configurations should only be used for testing purposes.
         .experimental = .{
-            // Allow compression (perMessageDeflate).
+            // Enables support for PerMessageDeflate.
             .compression = true, // default: false
         },
-        // A larger buffer allows a larger message to be received.
-        .buffer_size = 65535, // default: 65535
     });
     try server.listen();
 }

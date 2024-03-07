@@ -25,6 +25,7 @@ const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.Server.Connection,
     compression: bool,
+    max_msg_size: usize,
 
     // true = Connection is closed by the server. Breaks the message loop.
     close_conn: bool = false,
@@ -155,7 +156,7 @@ pub const Client = struct {
     }
 };
 
-pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callbacks) anyerror!void {
+pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const CallbacksFile.Callbacks) anyerror!void {
     var message: ?Message = null;
     defer {
         if (message != null) {
@@ -167,7 +168,7 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callb
     }
 
     while (self._private.close_conn == false) {
-        var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
+        var buffer: []u8 = try self._private.allocator.alloc(u8, msg_buffer_size);
         defer self._private.allocator.free(buffer);
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
@@ -179,7 +180,7 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callb
         };
 
         if (message == null) {
-            message = .{ .allocator = self._private.allocator };
+            message = .{ .allocator = self._private.allocator, .max_msg_size = self._private.max_msg_size };
         }
         try message.?.read(buffer[0..buffer_len]);
 
