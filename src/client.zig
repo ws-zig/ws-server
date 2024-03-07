@@ -186,9 +186,10 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const CallbacksFile.C
 
         // Tells us if the message has all the data and can now be processed.
         if (message.?.isLastMessage() == false) {
-            if (message.?.getType().? == MessageType.Continue) {
+            switch (message.?.getType().?) {
                 // Should contain no data and therefore be the last message.
-                return error.MessageTypeContinue;
+                MessageType.Continue, MessageType.Close, MessageType.Ping, MessageType.Pong => return error.LastMessageExpected,
+                inline else => {},
             }
             continue;
         }
