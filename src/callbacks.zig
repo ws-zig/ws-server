@@ -16,9 +16,10 @@ const std = @import("std");
 const SourceLocation = std.builtin.SourceLocation;
 
 const Client = @import("./client.zig").Client;
+const Error = @import("./error.zig").Error;
 
 pub const HandshakeFn = ?*const fn (client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool;
-pub const ErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
+pub const ErrorFn = ?*const fn (client: ?*Client, info: *const Error) anyerror!void;
 
 pub const OStrFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
 pub const Fn = ?*const fn (client: *Client) anyerror!void;
@@ -57,9 +58,9 @@ const ErrorCallback = struct {
 
     const Self = @This();
 
-    pub fn handle(self: *const Self, client: *Client, type_: anyerror, loc: SourceLocation) void {
+    pub fn handle(self: *const Self, client: ?*Client, info: *const Error) void {
         if (self.handler != null) {
-            self.handler.?(client, type_, loc) catch |err| {
+            self.handler.?(client, info) catch |err| {
                 std.debug.print("Error callback failed: {any}\n", .{err});
             };
         }

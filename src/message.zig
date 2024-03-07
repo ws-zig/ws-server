@@ -49,7 +49,7 @@ pub const Message = struct {
     _bytes: ?[]u8 = null,
     // Tells us whether the message is complete or whether we need to wait for new data.
     _lastMessage: bool = false,
-    _type: Type = Type.Continue,
+    _type: ?Type = null,
 
     const Self = @This();
 
@@ -65,8 +65,12 @@ pub const Message = struct {
         self._lastMessage = value;
     }
 
-    pub inline fn getType(self: *const Self) Type {
+    pub inline fn getType(self: *const Self) ?Type {
         return self._type;
+    }
+
+    pub inline fn setType(self: *Self, comptime value: Type) void {
+        self._type = value;
     }
 
     pub fn read(self: *Self, buffer: []const u8) anyerror!void {
@@ -76,7 +80,9 @@ pub const Message = struct {
         const data: ?[]u8 = try frame.read();
 
         self._lastMessage = frame.isLastFrame();
-        self._type = try Type.from(frame.getOpcode());
+        if (self._type == null) {
+            self._type = try Type.from(frame.getOpcode());
+        }
 
         if (data) |data_result| {
             var old_bytes_len: usize = 0;
@@ -91,12 +97,16 @@ pub const Message = struct {
         }
     }
 
-    pub fn write(self: *Self, comptime type_: Type, data: []const u8, compression: bool) anyerror!void {
+    pub fn write(self: *Self, data: []const u8, compression: bool) anyerror!void {
+        if (self._type == null) {
+            return error.MissingMessageType;
+        }
+
         var frame: Frame = .{ .allocator = self.allocator, .bytes = data };
         defer frame.deinit();
         frame.setLastFrame(self._lastMessage);
         frame.setCompression(compression);
-        const frame_bytes: []u8 = try frame.write(type_.into());
+        const frame_bytes: []u8 = try frame.write(self._type.?.into());
         self._bytes = try self.allocator.alloc(u8, frame_bytes.len);
         @memcpy(self._bytes.?, frame_bytes);
     }

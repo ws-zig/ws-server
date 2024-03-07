@@ -45,8 +45,9 @@ pub const Client = struct {
         var message: Message = .{ .allocator = self._private.allocator };
         defer message.deinit();
 
+        message.setType(type_);
         message.setLastMessage(true);
-        message.write(type_, data, self._private.compression) catch |err| {
+        message.write(data, self._private.compression) catch |err| {
             if (err == error.Frame_64bitRequired) {
                 // `u64` is not supported, so send the data as "chunks".
                 return try self._send(type_, data);
@@ -78,13 +79,16 @@ pub const Client = struct {
 
             if (message_idx > 0) {
                 if (data_left > 65531) {
-                    try message.write(MessageType.Continue, data[message_idx..(message_idx + 65531)], self._private.compression);
+                    message.setType(MessageType.Continue);
+                    try message.write(data[message_idx..(message_idx + 65531)], self._private.compression);
                 } else {
+                    message.setType(MessageType.Continue);
                     message.setLastMessage(true);
-                    try message.write(MessageType.Continue, data[message_idx..(message_idx + data_left)], self._private.compression);
+                    try message.write(data[message_idx..(message_idx + data_left)], self._private.compression);
                 }
             } else {
-                try message.write(type_, data[0..65531], self._private.compression);
+                message.setType(type_);
+                try message.write(data[0..65531], self._private.compression);
             }
             const message_result: []u8 = message.get().?;
 
@@ -151,45 +155,47 @@ pub const Client = struct {
     }
 };
 
-pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callbacks) void {
+pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callbacks) anyerror!void {
     var message: ?Message = null;
-    defer if (message != null) {
-        message.?.deinit();
-        message = null;
-    };
+    defer {
+        if (message != null) {
+            message.?.deinit();
+            message = null;
+        }
+        cbs.disconnect.handle(self);
+        self._deinit();
+    }
 
-    message_loop: while (self._private.close_conn == false) {
-        var buffer: []u8 = self._private.allocator.alloc(u8, buffer_size) catch |err| {
-            cbs.error_.handle(self, err, @src());
-            break :message_loop;
-        };
+    while (self._private.close_conn == false) {
+        var buffer: []u8 = try self._private.allocator.alloc(u8, buffer_size);
         defer self._private.allocator.free(buffer);
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
                 // The connection was not closed properly by this client.
-                OsReadError.ConnectionResetByPeer, OsReadError.ConnectionTimedOut, OsReadError.SocketNotConnected => {},
+                OsReadError.ConnectionResetByPeer, OsReadError.ConnectionTimedOut, OsReadError.SocketNotConnected => return,
                 // Something went wrong ...
-                else => cbs.error_.handle(self, err, @src()),
+                else => return err,
             }
-            break :message_loop;
         };
 
         if (message == null) {
             message = .{ .allocator = self._private.allocator };
         }
-        message.?.read(buffer[0..buffer_len]) catch |err| {
-            cbs.error_.handle(self, err, @src());
-            break :message_loop;
-        };
+        try message.?.read(buffer[0..buffer_len]);
 
         // Tells us if the message has all the data and can now be processed.
         if (message.?.isLastMessage() == false) {
-            continue :message_loop;
+            if (message.?.getType().? == MessageType.Continue) {
+                // Should contain no data and therefore be the last message.
+                return error.MessageTypeContinue;
+            }
+            continue;
         }
 
-        switch (message.?.getType()) {
-            MessageType.Continue => { // We are waiting for more data...
-                continue :message_loop;
+        switch (message.?.getType().?) {
+            MessageType.Continue => { // Should never happen.
+                // The message type should not be "Continue".
+                return error.MessageTypeContinue;
             },
             MessageType.Text => { // Process received text message...
                 cbs.text.handle(self, message.?.get());
@@ -199,7 +205,7 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callb
             },
             MessageType.Close => { // The client sends us a "close" message, so he wants to disconnect properly.
                 cbs.close.handle(self);
-                break :message_loop;
+                return;
             },
             MessageType.Ping => { // "Hello server, are you there?"
                 cbs.ping.handle(self);
@@ -214,7 +220,4 @@ pub fn handle(self: *Client, buffer_size: usize, cbs: *const CallbacksFile.Callb
         message.?.deinit();
         message = null;
     }
-
-    cbs.disconnect.handle(self);
-    self._deinit();
 }

@@ -4,6 +4,7 @@ const SourceLocation = std.builtin.SourceLocation;
 const ws = @import("ws-server");
 const Server = ws.Server;
 const Client = ws.Client;
+const Error = ws.Error;
 
 // When we have a new client, this function will be called before we can receive a message
 // like "text" from this client.
@@ -18,8 +19,12 @@ fn _onHandshake(client: *Client, headers: *const std.StringHashMap([]const u8)) 
 
 // If something went wrong unexpectedly, you can use this function to view some details of the error.
 // After this function call, the connection to the client is immediately terminated.
-fn _onError(client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void {
-    std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}\n", .{ type_, client.getAddress(), loc.file, loc.fn_name, loc.line, loc.column });
+fn _onError(client: ?*Client, info: *const Error) anyerror!void {
+    if (client != null) {
+        std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}\n", .{ info.getError(), client.?.getAddress(), info.getFile(), info.getFnName(), info.getLine(), info.getColumn() });
+    } else {
+        std.debug.print("[{any}] from `?`: {s}({s}):{d}:{d}\n", .{ info.getError(), info.getFile(), info.getFnName(), info.getLine(), info.getColumn() });
+    }
 }
 
 // When the incoming message loop breaks and the client disconnects, this function is called.

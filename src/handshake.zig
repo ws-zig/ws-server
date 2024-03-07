@@ -132,6 +132,8 @@ pub const Handshake = struct {
     const Self = @This();
 
     pub fn handle(self: *Self) anyerror!bool {
+        defer self._deinit();
+
         const allocator = self.client._private.allocator;
         const stream = &self.client._private.connection.stream;
 
@@ -172,7 +174,7 @@ pub const Handshake = struct {
             }
         }
 
-        const key = headers.generateKey() catch |err| {
+        const key: []const u8 = headers.generateKey() catch |err| {
             switch (err) {
                 error.MapHasNotBeenInitialized, error.MissingWebSocketKey => {
                     stream.writer().writeAll("HTTP/1.1 400 Bad Request\r\n\r\n") catch {};
@@ -182,7 +184,7 @@ pub const Handshake = struct {
             }
         };
         defer allocator.free(key);
-        const response = try headers.createResponse(key);
+        const response: []const u8 = try headers.createResponse(key);
         defer allocator.free(response);
 
         stream.writeAll(response) catch |err| {
@@ -195,7 +197,7 @@ pub const Handshake = struct {
         return self.cbs.handshake.handle(self.client, &headers.getMap().?);
     }
 
-    pub fn deinit(self: *Self) void {
+    fn _deinit(self: *Self) void {
         self.* = undefined;
     }
 };

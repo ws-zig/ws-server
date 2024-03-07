@@ -76,8 +76,14 @@ pub const Server = struct {
         defer server.deinit();
 
         while (true) {
-            const connection: net.Server.Connection = try server.accept();
-            const thread: std.Thread = try std.Thread.spawn(.{}, _handleConnection, .{ self, connection });
+            const connection: net.Server.Connection = server.accept() catch |err| {
+                self._private.callbacks.error_.handle(null, &.{ ._error = err, ._location = @src() });
+                continue;
+            };
+            const thread: std.Thread = std.Thread.spawn(.{}, _handleConnection, .{ self, connection }) catch |err| {
+                self._private.callbacks.error_.handle(null, &.{ ._error = err, ._location = @src() });
+                continue;
+            };
             thread.detach();
         }
     }
@@ -95,11 +101,14 @@ pub const Server = struct {
             .cbs = &self._private.callbacks,
         };
         const handshake_result = handshake.handle() catch |err| {
-            std.debug.print("Handshake failed: [{any}] {any}\n", .{ client.getAddress(), err });
+            self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
             return;
         };
         if (handshake_result == true) {
-            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.callbacks);
+            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.callbacks) catch |err| {
+                self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
+                return;
+            };
         }
     }
 
@@ -139,7 +148,7 @@ pub const Server = struct {
     ///
     /// ### Example
     /// ```zig
-    /// fn _onError(client: *Client, type_: anyerror, data: ?[]const u8) anyerror!void {
+    /// fn _onError(client: ?*Client, info: *const Error) anyerror!void {
     ///     // ...
     /// }
     /// // ...

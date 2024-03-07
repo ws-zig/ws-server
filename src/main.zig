@@ -14,3 +14,4 @@
 
 pub const Client = @import("./client.zig").Client;
 pub const Server = @import("./server.zig").Server;
+pub const Error = @import("./error.zig").Error;
