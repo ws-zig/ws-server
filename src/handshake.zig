@@ -18,7 +18,7 @@ const Allocator = std.mem.Allocator;
 const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
 const Client = ClientFile.Client;
-const Callbacks = @import("./callbacks.zig");
+const CallbacksFile = @import("./callbacks.zig");
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -127,7 +127,7 @@ const Headers = struct {
 
 pub const Handshake = struct {
     client: *Client,
-    cbs: *const Callbacks.ClientCallbacks,
+    cbs: *const CallbacksFile.Callbacks,
 
     const Self = @This();
 

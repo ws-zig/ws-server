@@ -19,7 +19,7 @@ const Allocator = std.mem.Allocator;
 const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
 const HandshakeFile = @import("./handshake.zig");
-const Callbacks = @import("./callbacks.zig");
+const CallbacksFile = @import("./callbacks.zig");
 
 const ServerConfigExperimental = struct {
     compression: bool = false,
@@ -38,7 +38,7 @@ const PrivateFields = struct {
 
     config: ServerConfig = .{},
 
-    clientCallbacks: Callbacks.ClientCallbacks = .{},
+    callbacks: CallbacksFile.Callbacks = .{},
 };
 
 pub const Server = struct {
@@ -92,14 +92,14 @@ pub const Server = struct {
         };
         var handshake: HandshakeFile.Handshake = .{
             .client = &client,
-            .cbs = &self._private.clientCallbacks,
+            .cbs = &self._private.callbacks,
         };
         const handshake_result = handshake.handle() catch |err| {
             std.debug.print("Handshake failed: [{any}] {any}\n", .{ client.getAddress(), err });
             return;
         };
         if (handshake_result == true) {
-            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
+            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.callbacks);
         }
     }
 
@@ -116,8 +116,8 @@ pub const Server = struct {
     /// server.onHandshake(&_onHandshake);
     /// // ...
     /// ```
-    pub fn onHandshake(self: *Self, cb: Callbacks.ClientHandshakeFn) void {
-        self._private.clientCallbacks.handshake.handler = cb;
+    pub fn onHandshake(self: *Self, cb: CallbacksFile.HandshakeFn) void {
+        self._private.callbacks.handshake.handler = cb;
     }
 
     /// This function is always called shortly before the connection to the client is closed.
@@ -131,8 +131,8 @@ pub const Server = struct {
     /// server.onDisconnect(&_onDisconnect);
     /// // ...
     /// ```
-    pub fn onDisconnect(self: *Self, cb: Callbacks.ClientDisconnectFn) void {
-        self._private.clientCallbacks.disconnect.handler = cb;
+    pub fn onDisconnect(self: *Self, cb: CallbacksFile.Fn) void {
+        self._private.callbacks.disconnect.handler = cb;
     }
 
     /// This function is called whenever an unexpected error occurs.
@@ -146,8 +146,8 @@ pub const Server = struct {
     /// server.onError(&_onError);
     /// // ...
     /// ```
-    pub fn onError(self: *Self, cb: Callbacks.ClientErrorFn) void {
-        self._private.clientCallbacks.error_.handler = cb;
+    pub fn onError(self: *Self, cb: CallbacksFile.ErrorFn) void {
+        self._private.callbacks.error_.handler = cb;
     }
 
     /// Set a callback when a "text" message is received from the client.
@@ -161,8 +161,8 @@ pub const Server = struct {
     /// server.onText(&_onText);
     /// // ...
     /// ```
-    pub fn onText(self: *Self, cb: Callbacks.ClientTextFn) void {
-        self._private.clientCallbacks.text.handler = cb;
+    pub fn onText(self: *Self, cb: CallbacksFile.OStrFn) void {
+        self._private.callbacks.text.handler = cb;
     }
 
     /// Set a callback when a "binary" message is received from the client.
@@ -176,8 +176,8 @@ pub const Server = struct {
     /// server.onBinary(&_onBinary);
     /// // ...
     /// ```
-    pub fn onBinary(self: *Self, cb: Callbacks.ClientBinaryFn) void {
-        self._private.clientCallbacks.binary.handler = cb;
+    pub fn onBinary(self: *Self, cb: CallbacksFile.OStrFn) void {
+        self._private.callbacks.binary.handler = cb;
     }
 
     /// Set a callback when a "close" message is received from the client.
@@ -191,8 +191,8 @@ pub const Server = struct {
     /// server.onClose(&_onClose);
     /// // ...
     /// ```
-    pub fn onClose(self: *Self, cb: Callbacks.ClientCloseFn) void {
-        self._private.clientCallbacks.close.handler = cb;
+    pub fn onClose(self: *Self, cb: CallbacksFile.Fn) void {
+        self._private.callbacks.close.handler = cb;
     }
 
     /// Set a callback when a "ping" message is received from the client.
@@ -206,8 +206,8 @@ pub const Server = struct {
     /// server.onPing(&_onPing);
     /// // ...
     /// ```
-    pub fn onPing(self: *Self, cb: Callbacks.ClientPingFn) void {
-        self._private.clientCallbacks.ping.handler = cb;
+    pub fn onPing(self: *Self, cb: CallbacksFile.Fn) void {
+        self._private.callbacks.ping.handler = cb;
     }
 
     /// Set a callback when a "pong" message is received from the client.
@@ -221,7 +221,7 @@ pub const Server = struct {
     /// server.onPong(&_onPong);
     /// // ...
     /// ```
-    pub fn onPong(self: *Self, cb: Callbacks.ClientPongFn) void {
-        self._private.clientCallbacks.pong.handler = cb;
+    pub fn onPong(self: *Self, cb: CallbacksFile.Fn) void {
+        self._private.callbacks.pong.handler = cb;
     }
 };

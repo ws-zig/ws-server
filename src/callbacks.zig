@@ -17,30 +17,26 @@ const SourceLocation = std.builtin.SourceLocation;
 
 const Client = @import("./client.zig").Client;
 
-pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool;
-pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
-pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
+pub const HandshakeFn = ?*const fn (client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool;
+pub const ErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
 
-pub const ClientTextFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
-pub const ClientBinaryFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
-pub const ClientCloseFn = ?*const fn (client: *Client) anyerror!void;
-pub const ClientPingFn = ?*const fn (client: *Client) anyerror!void;
-pub const ClientPongFn = ?*const fn (client: *Client) anyerror!void;
+pub const OStrFn = ?*const fn (client: *Client, data: ?[]const u8) anyerror!void;
+pub const Fn = ?*const fn (client: *Client) anyerror!void;
 
-pub const ClientCallbacks = struct {
-    handshake: ClientHandshake = .{},
-    disconnect: ClientDisconnect = .{},
-    error_: ClientError = .{},
+pub const Callbacks = struct {
+    handshake: HandshakeCallback = .{ .handler = null },
+    disconnect: FnCallback = .{ .name = "Disconnect", .handler = null },
+    error_: ErrorCallback = .{ .handler = null },
 
-    text: ClientText = .{},
-    binary: ClientBinary = .{},
-    close: ClientClose = .{},
-    ping: ClientPing = .{},
-    pong: ClientPong = .{},
+    text: OStrCallback = .{ .name = "Text", .handler = null },
+    binary: OStrCallback = .{ .name = "Binary", .handler = null },
+    close: FnCallback = .{ .name = "Close", .handler = null },
+    ping: FnCallback = .{ .name = "Ping", .handler = null },
+    pong: FnCallback = .{ .name = "Pong", .handler = null },
 };
 
-const ClientHandshake = struct {
-    handler: ClientHandshakeFn = null,
+const HandshakeCallback = struct {
+    handler: HandshakeFn,
 
     const Self = @This();
 
@@ -56,22 +52,8 @@ const ClientHandshake = struct {
     }
 };
 
-const ClientDisconnect = struct {
-    handler: ClientDisconnectFn = null,
-
-    const Self = @This();
-
-    pub fn handle(self: *const Self, client: *Client) void {
-        if (self.handler != null) {
-            self.handler.?(client) catch |err| {
-                std.debug.print("Disconnect callback failed: {any}\n", .{err});
-            };
-        }
-    }
-};
-
-const ClientError = struct {
-    handler: ClientErrorFn = null,
+const ErrorCallback = struct {
+    handler: ErrorFn,
 
     const Self = @This();
 
@@ -84,71 +66,31 @@ const ClientError = struct {
     }
 };
 
-const ClientText = struct {
-    handler: ClientTextFn = null,
+const OStrCallback = struct {
+    name: []const u8,
+    handler: OStrFn,
 
     const Self = @This();
 
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
             self.handler.?(client, data) catch |err| {
-                std.debug.print("Text callback failed: {any}\n", .{err});
+                std.debug.print("{s} callback failed: {any}\n", .{ self.name, err });
             };
         }
     }
 };
 
-const ClientBinary = struct {
-    handler: ClientBinaryFn = null,
-
-    const Self = @This();
-
-    pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
-        if (self.handler != null) {
-            self.handler.?(client, data) catch |err| {
-                std.debug.print("Binary callback failed: {any}\n", .{err});
-            };
-        }
-    }
-};
-
-const ClientClose = struct {
-    handler: ClientCloseFn = null,
+const FnCallback = struct {
+    name: []const u8,
+    handler: Fn,
 
     const Self = @This();
 
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
             self.handler.?(client) catch |err| {
-                std.debug.print("Close callback failed: {any}\n", .{err});
-            };
-        }
-    }
-};
-
-const ClientPing = struct {
-    handler: ClientPingFn = null,
-
-    const Self = @This();
-
-    pub fn handle(self: *const Self, client: *Client) void {
-        if (self.handler != null) {
-            self.handler.?(client) catch |err| {
-                std.debug.print("Ping callback failed: {any}\n", .{err});
-            };
-        }
-    }
-};
-
-const ClientPong = struct {
-    handler: ClientPongFn = null,
-
-    const Self = @This();
-
-    pub fn handle(self: *const Self, client: *Client) void {
-        if (self.handler != null) {
-            self.handler.?(client) catch |err| {
-                std.debug.print("Pong callback failed: {any}\n", .{err});
+                std.debug.print("{s} callback failed: {any}\n", .{ self.name, err });
             };
         }
     }
