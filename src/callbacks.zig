@@ -17,7 +17,7 @@ const SourceLocation = std.builtin.SourceLocation;
 
 const Client = @import("./client.zig").Client;
 
-pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool;
+pub const ClientHandshakeFn = ?*const fn (client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool;
 pub const ClientDisconnectFn = ?*const fn (client: *Client) anyerror!void;
 pub const ClientErrorFn = ?*const fn (client: *Client, type_: anyerror, loc: SourceLocation) anyerror!void;
 
@@ -44,7 +44,7 @@ const ClientHandshake = struct {
 
     const Self = @This();
 
-    pub fn handle(self: *const Self, client: *Client, headers: *std.StringHashMap([]const u8)) bool {
+    pub fn handle(self: *const Self, client: *Client, headers: *const std.StringHashMap([]const u8)) bool {
         if (self.handler != null) {
             const cb_result = self.handler.?(client, headers) catch |err| {
                 std.debug.print("Handshake callback failed: {any}\n", .{err});

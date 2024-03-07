@@ -18,6 +18,7 @@ const Allocator = std.mem.Allocator;
 
 const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
+const HandshakeFile = @import("./handshake.zig");
 const Callbacks = @import("./callbacks.zig");
 
 const ServerConfigExperimental = struct {
@@ -89,12 +90,17 @@ pub const Server = struct {
                 .compression = self._private.config.experimental.compression,
             },
         };
-        const handshake_result: bool = ClientFile.handshake(&client, &self._private.clientCallbacks);
-        if (handshake_result == false) {
-            client.closeImmediately();
+        var handshake: HandshakeFile.Handshake = .{
+            .client = &client,
+            .cbs = &self._private.clientCallbacks,
+        };
+        const handshake_result = handshake.handle() catch |err| {
+            std.debug.print("Handshake failed: [{any}] {any}\n", .{ client.getAddress(), err });
             return;
+        };
+        if (handshake_result == true) {
+            ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
         }
-        ClientFile.handle(&client, self._private.config.buffer_size, &self._private.clientCallbacks);
     }
 
     /// This function is called whenever a new connection to the server is established.
@@ -103,7 +109,7 @@ pub const Server = struct {
     ///
     /// ### Example
     /// ```zig
-    /// fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool {
+    /// fn _onHandshake(client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool {
     ///     // ...
     /// }
     /// // ...

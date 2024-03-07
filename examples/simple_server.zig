@@ -7,8 +7,10 @@ const Client = ws.Client;
 
 // When we have a new client, this function will be called before we can receive a message
 // like "text" from this client.
-fn _onHandshake(client: *Client, headers: *std.StringHashMap([]const u8)) anyerror!bool {
-    std.debug.print("Handshake from ({any}): {s} {s} {s}\n", .{ client.getAddress(), headers.get("method").?, headers.get("uri").?, headers.get("version").? });
+fn _onHandshake(client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool {
+    if (headers.get("Sec-WebSocket-Key")) |key| {
+        std.debug.print("Handshake from ({any}): {s}\n", .{ client.getAddress(), key });
+    }
     // Set the return value to false to abort the
     // handshake and immediately disconnect from the client.
     return true;
