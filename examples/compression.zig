@@ -8,7 +8,7 @@ fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
     if (data) |data_result| {
         std.debug.print("{s}\n", .{data_result});
     }
-    try client.textAll("Hello client!");
+    _ = try client.textAll("Hello client!");
 }
 
 pub fn main() anyerror!void {

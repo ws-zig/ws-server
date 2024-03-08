@@ -63,10 +63,9 @@ pub const Client = struct {
         return try self._writeAll(message.get().?);
     }
 
-    fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
+    fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!bool {
         if (data.len <= 65531) {
-            _ = try self._sendAll(type_, true, data);
-            return;
+            return try self._sendAll(type_, true, data);
         }
 
         var message_idx: usize = 0;
@@ -93,7 +92,7 @@ pub const Client = struct {
             // Stop here as the result will only be
             // `false` if the client is disconnected.
             if (message_result == false) {
-                break;
+                return false;
             }
 
             // All data has been sent.
@@ -101,43 +100,45 @@ pub const Client = struct {
                 break;
             }
         }
+
+        return true;
     }
 
     /// Send a "text" message to this client.
-    pub fn textAll(self: *const Self, data: []const u8) anyerror!void {
-        _ = try self._sendAll(MessageType.Text, true, data);
+    pub fn textAll(self: *const Self, data: []const u8) anyerror!bool {
+        return try self._sendAll(MessageType.Text, true, data);
     }
 
     /// Send a "text" message to this client in 65535 byte chunks.
-    pub fn text(self: *const Self, data: []const u8) anyerror!void {
-        try self._send(MessageType.Text, data);
+    pub fn text(self: *const Self, data: []const u8) anyerror!bool {
+        return try self._send(MessageType.Text, data);
     }
 
     /// Send a "binary" message to this client.
-    pub fn binaryAll(self: *const Self, data: []const u8) anyerror!void {
-        _ = try self._sendAll(MessageType.Binary, true, data);
+    pub fn binaryAll(self: *const Self, data: []const u8) anyerror!bool {
+        return try self._sendAll(MessageType.Binary, true, data);
     }
 
     /// Send a "binary" message to this client in 65535 byte chunks.
-    pub fn binary(self: *const Self, data: []const u8) anyerror!void {
-        try self._send(MessageType.Binary, data);
+    pub fn binary(self: *const Self, data: []const u8) anyerror!bool {
+        return try self._send(MessageType.Binary, data);
     }
 
     /// Send a "close" message to this client.
     ///
     /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
-    pub fn close(self: *const Self) anyerror!void {
-        _ = try self._sendAll(MessageType.Close, true, "");
+    pub fn close(self: *const Self) anyerror!bool {
+        return try self._sendAll(MessageType.Close, true, "");
     }
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
-    pub fn ping(self: *const Self) anyerror!void {
-        _ = try self._sendAll(MessageType.Ping, true, "");
+    pub fn ping(self: *const Self) anyerror!bool {
+        return try self._sendAll(MessageType.Ping, true, "");
     }
 
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
-    pub fn pong(self: *const Self) anyerror!void {
-        _ = try self._sendAll(MessageType.Pong, true, "");
+    pub fn pong(self: *const Self) anyerror!bool {
+        return try self._sendAll(MessageType.Pong, true, "");
     }
 
     /// Close the connection from this client immediately. (No "close" message is sent to the client!)

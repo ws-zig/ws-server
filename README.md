@@ -78,7 +78,7 @@ fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
     if (data) |data_result| {
         std.debug.print("{s}\n", .{data_result});
     }
-    try client.textAll("Hello client!");
+    _ = try client.textAll("Hello client!");
 }
 
 pub fn main() anyerror!void {
@@ -116,5 +116,4 @@ client.on('message', (msg) => {
 ```
 
 ### Result:
-![image](https://github.com/ws-zig/ws-server/assets/154023155/7bab8949-8da6-4906-9cbb-95eaaf67f978)
-
+![image](https://github.com/ws-zig/ws-server/assets/154023155/fe20979f-7cca-41a2-a611-2d57b3cccd9e)

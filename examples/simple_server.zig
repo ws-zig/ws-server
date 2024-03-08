@@ -23,7 +23,7 @@ fn _onError(client: ?*Client, info: *const Error) anyerror!void {
     if (client != null) {
         std.debug.print("[{any}] from `{any}`: {s}({s}):{d}:{d}\n", .{ info.getError(), client.?.getAddress(), info.getFile(), info.getFnName(), info.getLine(), info.getColumn() });
     } else {
-        std.debug.print("[{any}] from `?`: {s}({s}):{d}:{d}\n", .{ info.getError(), info.getFile(), info.getFnName(), info.getLine(), info.getColumn() });
+        std.debug.print("[{any}]: {s}({s}):{d}:{d}\n", .{ info.getError(), info.getFile(), info.getFnName(), info.getLine(), info.getColumn() });
     }
 }
 
@@ -37,7 +37,12 @@ fn _onText(client: *Client, data: ?[]const u8) anyerror!void {
     if (data) |data_result| {
         std.debug.print("MESSAGE RECEIVED: {s}\n", .{data_result});
     }
-    try client.textAll("Hello client! :)");
+    const result = try client.textAll("Hello client! :)");
+    // Check whether the client received this message.
+    // Otherwise the connection to the client was lost.
+    if (result == true) {
+        std.debug.print("The message was successfully sent to the client!\n", .{});
+    }
 }
 
 // When a binary message has been received from the client, this function is called.
@@ -45,25 +50,34 @@ fn _onBinary(client: *Client, data: ?[]const u8) anyerror!void {
     if (data) |data_result| {
         std.debug.print("MESSAGE RECEIVED: {s}\n", .{data_result});
     }
-    try client.binaryAll("Hello client! :)");
+    const result = try client.binaryAll("Hello client! :)");
+    // Check whether the client received this message.
+    // Otherwise the connection to the client was lost.
+    if (result == true) {
+        std.debug.print("The message was successfully sent to the client!\n", .{});
+    }
 }
 
 // When the client has properly closed the connection with a message, this function is called.
 fn _onClose(client: *Client) anyerror!void {
     std.debug.print("CLOSE RECEIVED!\n", .{});
-    try client.close();
+    // We don't need the message result.
+    _ = try client.close();
 }
 
 // When the client pings this server, this function is called.
 fn _onPing(client: *Client) anyerror!void {
     std.debug.print("PING RECEIVED!\n", .{});
-    try client.pong();
+    const result = try client.pong();
+    if (result == true) {
+        std.debug.print("Pong was successfully sent to the client!\n", .{});
+    }
 }
 
 // When we get a pong back from the client after a ping, this function is called.
 fn _onPong(_: *Client) anyerror!void {
     std.debug.print("PONG RECEIVED!\n", .{});
-    // There's nothing to do here.
+    // ...
 }
 
 pub fn main() anyerror!void {
@@ -73,7 +87,7 @@ pub fn main() anyerror!void {
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.setConfig(.{
-        .buffer_size = 1024,
+        .msg_buffer_size = 1024,
     });
     server.onHandshake(&_onHandshake);
     server.onDisconnect(&_onDisconnect);
