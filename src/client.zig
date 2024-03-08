@@ -42,75 +42,70 @@ pub const Client = struct {
         return self._private.connection.address;
     }
 
-    fn _sendAll(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
+    fn _writeAll(self: *const Self, data: []const u8) anyerror!bool {
+        self._private.connection.stream.writeAll(data) catch |err| {
+            // The connection was closed by the client.
+            if (err == error.ConnectionResetByPeer) {
+                return false;
+            }
+            return err;
+        };
+        return true;
+    }
+
+    fn _sendAll(self: *const Self, comptime type_: MessageType, comptime last_msg: bool, data: []const u8) anyerror!bool {
         var message: Message = .{ .allocator = self._private.allocator };
         defer message.deinit();
 
         message.setType(type_);
-        message.setLastMessage(true);
-        message.write(data, self._private.compression) catch |err| {
-            if (err == error.Frame_64bitRequired) {
-                // `u64` is not supported, so send the data as "chunks".
-                return try self._send(type_, data);
-            }
-
-            return err;
-        };
-        const message_result: []u8 = message.get().?;
-
-        self._private.connection.stream.writeAll(message_result) catch |err| {
-            // The connection was closed by the client.
-            if (err == error.ConnectionResetByPeer) {
-                return;
-            }
-            return err;
-        };
+        message.setLastMessage(last_msg);
+        try message.write(data, self._private.compression);
+        return try self._writeAll(message.get().?);
     }
 
     fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!void {
         if (data.len <= 65531) {
-            return try self._sendAll(type_, data);
+            _ = try self._sendAll(type_, true, data);
+            return;
         }
 
         var message_idx: usize = 0;
-        message_loop: while (true) {
-            const data_left: usize = data.len - message_idx;
-            var message: Message = .{ .allocator = self._private.allocator };
-            defer message.deinit();
+        while (true) {
+            var message_result = false;
 
             if (message_idx > 0) {
+                const data_left: usize = data.len - message_idx;
+                const start_message_idx = message_idx;
+
                 if (data_left > 65531) {
-                    message.setType(MessageType.Continue);
-                    try message.write(data[message_idx..(message_idx + 65531)], self._private.compression);
+                    message_idx += 65531;
+                    message_result = try self._sendAll(MessageType.Continue, false, data[start_message_idx..message_idx]);
                 } else {
-                    message.setType(MessageType.Continue);
-                    message.setLastMessage(true);
-                    try message.write(data[message_idx..(message_idx + data_left)], self._private.compression);
+                    message_idx += data_left;
+                    message_result = try self._sendAll(MessageType.Continue, true, data[start_message_idx..message_idx]);
                 }
             } else {
-                message.setType(type_);
-                try message.write(data[0..65531], self._private.compression);
+                message_idx += 65531;
+                message_result = try self._sendAll(type_, false, data[0..message_idx]);
             }
-            const message_result: []u8 = message.get().?;
 
-            self._private.connection.stream.writeAll(message_result) catch |err| {
-                // The connection was closed by the client.
-                if (err == error.ConnectionResetByPeer) {
-                    break :message_loop;
-                }
-                return err;
-            };
+            // The message could not be sent.
+            // Stop here as the result will only be
+            // `false` if the client is disconnected.
+            if (message_result == false) {
+                break;
+            }
 
-            message_idx += 65531;
+            // All data has been sent.
             if (data.len <= message_idx) {
-                break :message_loop;
+                break;
             }
         }
     }
 
     /// Send a "text" message to this client.
     pub fn textAll(self: *const Self, data: []const u8) anyerror!void {
-        try self._sendAll(MessageType.Text, data);
+        _ = try self._sendAll(MessageType.Text, true, data);
     }
 
     /// Send a "text" message to this client in 65535 byte chunks.
@@ -120,7 +115,7 @@ pub const Client = struct {
 
     /// Send a "binary" message to this client.
     pub fn binaryAll(self: *const Self, data: []const u8) anyerror!void {
-        try self._sendAll(MessageType.Binary, data);
+        _ = try self._sendAll(MessageType.Binary, true, data);
     }
 
     /// Send a "binary" message to this client in 65535 byte chunks.
@@ -132,17 +127,17 @@ pub const Client = struct {
     ///
     /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
     pub fn close(self: *const Self) anyerror!void {
-        try self._send(MessageType.Close, "");
+        _ = try self._sendAll(MessageType.Close, true, "");
     }
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
     pub fn ping(self: *const Self) anyerror!void {
-        try self._send(MessageType.Ping, "");
+        _ = try self._sendAll(MessageType.Ping, true, "");
     }
 
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
     pub fn pong(self: *const Self) anyerror!void {
-        try self._send(MessageType.Pong, "");
+        _ = try self._sendAll(MessageType.Pong, true, "");
     }
 
     /// Close the connection from this client immediately. (No "close" message is sent to the client!)
@@ -184,7 +179,7 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const CallbacksFile.C
         }
         try message.?.read(buffer[0..buffer_len]);
 
-        // Tells us if the message has all the data and can now be processed.
+        // Check whether the message is now complete.
         if (message.?.isLastMessage() == false) {
             switch (message.?.getType().?) {
                 // Should contain no data and therefore be the last message.
