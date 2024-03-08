@@ -220,10 +220,16 @@ pub const Frame = struct {
             extra_data[0] |= 0b10000000;
         }
         if (self._rsv1 == true) {
-            extra_data[0] |= 0b01000000;
+            // Compression without data results in the following error message for the client:
+            // "RangeError: Invalid WebSocket frame: RSV1 must be clear"
+            //
+            // No data + Compression = { 0x03, 0x00 }
+            if (self.bytes.len > 0) {
+                extra_data[0] |= 0b01000000;
 
-            self.bytes = try self._compress(self.bytes);
-            bytes_compressed = true;
+                self.bytes = try self._compress(self.bytes);
+                bytes_compressed = true;
+            }
         }
 
         if (self.bytes.len <= 125) {
