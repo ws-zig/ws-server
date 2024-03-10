@@ -20,6 +20,7 @@ const MessageFile = @import("./message.zig");
 const Message = MessageFile.Message;
 const MessageType = MessageFile.Type;
 const CallbacksFile = @import("./callbacks.zig");
+const Callbacks = CallbacksFile.Callbacks;
 
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
@@ -152,7 +153,7 @@ pub const Client = struct {
     }
 };
 
-pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const CallbacksFile.Callbacks) anyerror!void {
+pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anyerror!void {
     var message: ?Message = null;
     defer {
         if (message != null) {

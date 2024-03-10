@@ -1,5 +1,4 @@
 const std = @import("std");
-const SourceLocation = std.builtin.SourceLocation;
 
 const ws = @import("ws-server");
 const Server = ws.Server;

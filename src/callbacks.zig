@@ -15,8 +15,10 @@
 const std = @import("std");
 const SourceLocation = std.builtin.SourceLocation;
 
-const Client = @import("./client.zig").Client;
-const Error = @import("./error.zig").Error;
+const ClientFile = @import("./client.zig");
+const Client = ClientFile.Client;
+const ErrorFile = @import("./error.zig");
+const Error = ErrorFile.Error;
 
 pub const HandshakeFn = ?*const fn (client: *Client, headers: *const std.StringHashMap([]const u8)) anyerror!bool;
 pub const ErrorFn = ?*const fn (client: ?*Client, info: *const Error) anyerror!void;

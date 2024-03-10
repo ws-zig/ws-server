@@ -17,19 +17,23 @@ const net = std.net;
 const Allocator = std.mem.Allocator;
 
 const Utils = @import("./utils/lib.zig");
-const Config = @import("./config.zig").Config;
+const ConfigFile = @import("./config.zig");
+const Config = ConfigFile.Config;
 const ClientFile = @import("./client.zig");
+const Client = ClientFile.Client;
 const HandshakeFile = @import("./handshake.zig");
+const Handshake = HandshakeFile.Handshake;
 const CallbacksFile = @import("./callbacks.zig");
+const Callbacks = CallbacksFile.Callbacks;
 
 const PrivateFields = struct {
-    allocator: ?*const Allocator = null,
+    allocator: *const Allocator,
     addr: []const u8,
-    port: u16 = 8080,
+    port: u16,
 
     config: Config = .{},
 
-    callbacks: CallbacksFile.Callbacks = .{},
+    callbacks: Callbacks = .{},
 };
 
 pub const Server = struct {
@@ -50,9 +54,6 @@ pub const Server = struct {
 
     /// Listen (run) the server.
     pub fn listen(self: *Self) anyerror!void {
-        if (self._private.allocator == null) {
-            return error.MissingAllocator;
-        }
         if (self._private.config.msg_buffer_size > 65535) {
             if (Utils.CPU.is64bit() == false) {
                 // On non-64-bit architectures,
@@ -84,15 +85,15 @@ pub const Server = struct {
     }
 
     fn _handleConnection(self: *const Self, connection: net.Server.Connection) void {
-        var client = ClientFile.Client{
+        var client: Client = .{
             ._private = .{
-                .allocator = self._private.allocator.?,
+                .allocator = self._private.allocator,
                 .connection = connection,
                 .compression = self._private.config.experimental.compression,
                 .max_msg_size = self._private.config.max_msg_size,
             },
         };
-        var handshake: HandshakeFile.Handshake = .{
+        var handshake: Handshake = .{
             .client = &client,
             .cbs = &self._private.callbacks,
         };

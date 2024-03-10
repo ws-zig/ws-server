@@ -15,7 +15,8 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const Frame = @import("./frame.zig").Frame;
+const FrameFile = @import("./frame.zig");
+const Frame = FrameFile.Frame;
 
 pub const Type = enum(u8) {
     Continue = 0,

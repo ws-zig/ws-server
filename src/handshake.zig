@@ -19,6 +19,7 @@ const Utils = @import("./utils/lib.zig");
 const ClientFile = @import("./client.zig");
 const Client = ClientFile.Client;
 const CallbacksFile = @import("./callbacks.zig");
+const Callbacks = CallbacksFile.Callbacks;
 
 const MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const ENCODER_ALPHABETE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -127,7 +128,7 @@ const Headers = struct {
 
 pub const Handshake = struct {
     client: *Client,
-    cbs: *const CallbacksFile.Callbacks,
+    cbs: *const Callbacks,
 
     const Self = @This();
 

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub const Client = @import("./client.zig").Client;
-pub const Server = @import("./server.zig").Server;
-pub const Error = @import("./error.zig").Error;
+const ClientFile = @import("./client.zig");
+pub const Client = ClientFile.Client;
+const ServerFile = @import("./server.zig");
+pub const Server = ServerFile.Server;
+const ErrorFile = @import("./error.zig");
+pub const Error = ErrorFile.Error;
