@@ -1,4 +1,32 @@
 # Changelog
+## [v0.4.0](https://github.com/ws-zig/ws-server/tree/v0.4.0) (2024-03-10 UTC+1)
+> [!NOTE]
+> The upcoming Zig(-lang) version [**0.12.0**](https://github.com/ziglang/zig/tree/0b744da844e4172ec0c695098e67ab2a7184c5f0) is supported.
+
+> [!TIP]
+> Check out the new source code for our [examples](https://github.com/ws-zig/ws-server/tree/v0.4.0/examples).
+
+**Changed**
+- `text()`, `textAll()`, `binary()`, `binaryAll()`, `ping()` and `pong()` now return a boolean value.
+- - This value indicates whether the message was sent, otherwise the client is no longer connected to the server.
+- `onError` callback now has an `Error` struct parameter.
+- - This new struct now contains all information.
+- `buffer_size` configuration.
+- - This configuration has been renamed to `msg_buffer_size`.
+
+**Added**
+- `max_msg_size` configuration.
+- - If the message is received in "chunks" and exceeds this limit, the `onError` callback is called and the client is disconnected.
+  - Default: `std.math.maxInt(u32)`
+
+**Fixed**
+- `ping()`, `pong()` and empty `text()`, `textAll()`, `binary()` and `binaryAll()` when compression is enabled.
+- - Empty messages caused an error on the client side.
+
+**Other**
+- Some improvements and a rewritten handshake.
+- -  [Click here to compare all changes.](https://github.com/ws-zig/ws-server/compare/v0.3.0...v0.4.0)
+
 ## [v0.3.0](https://github.com/ws-zig/ws-server/tree/v0.3.0) (2024-03-05 UTC+1)
 > [!NOTE]
 > The upcoming Zig(-lang) version [**0.12.0**](https://github.com/ziglang/zig/tree/0b744da844e4172ec0c695098e67ab2a7184c5f0) is supported.
