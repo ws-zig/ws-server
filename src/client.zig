@@ -183,19 +183,15 @@ pub const Client = struct {
             }
         }
 
-        const code_val: u16 = @intFromEnum(code);
-        const code_array: [2]u8 = .{
-            @intCast((code_val >> 8) & 0b11111111),
-            @intCast(code_val & 0b11111111),
-        };
-
         if (msg != null) {
             data = try self._private.allocator.alloc(u8, (2 + msg.?.len));
             @memcpy(data.?[2..], msg.?);
         } else {
             data = try self._private.allocator.alloc(u8, 2);
         }
-        @memcpy(data.?[0..2], code_array[0..2]);
+        const code_val: u16 = @intFromEnum(code);
+        data.?[0] = @intCast((code_val >> 8) & 0b11111111);
+        data.?[1] = @intCast(code_val & 0b11111111);
 
         return try self._sendAll(MessageType.Close, true, false, data.?);
     }
