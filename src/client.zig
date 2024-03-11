@@ -75,9 +75,9 @@ pub const Client = struct {
 
     fn _sendAll(
         self: *const Self,
-        comptime type_: MessageType,
-        comptime last_msg: bool,
-        comptime compression: bool,
+        type_: MessageType,
+        last_msg: bool,
+        compression: bool,
         data: []const u8,
     ) anyerror!bool {
         var message: Message = .{ .allocator = self._private.allocator };
@@ -89,7 +89,7 @@ pub const Client = struct {
         return try self._writeAll(message.get().?);
     }
 
-    fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!bool {
+    fn _send(self: *const Self, type_: MessageType, data: []const u8) anyerror!bool {
         if (data.len <= 65531) {
             return try self._sendAll(type_, true, self._private.compression, data);
         }

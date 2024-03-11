@@ -72,7 +72,7 @@ pub const Message = struct {
         return self._type;
     }
 
-    pub inline fn setType(self: *Self, comptime value: Type) void {
+    pub inline fn setType(self: *Self, value: Type) void {
         self._type = value;
     }
 
