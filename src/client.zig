@@ -22,6 +22,25 @@ const MessageType = MessageFile.Type;
 const CallbacksFile = @import("./callbacks.zig");
 const Callbacks = CallbacksFile.Callbacks;
 
+pub const CloseCodes = enum(u16) {
+    Normal = 1000,
+    GoingAway = 1001,
+    ProtocolError = 1002,
+    Unsupported = 1003,
+    _Reserved1 = 1004,
+    NoStatus = 1005,
+    Abnormal = 1006,
+    UnsupportedPayload = 1007,
+    PolicyViolation = 1008,
+    TooLarge = 1009,
+    MandatoryExtension = 1010,
+    ServerError = 1011,
+    ServiceRestart = 1012,
+    TryAgainLater = 1013,
+    BadGateway = 1014,
+    TlsHandshakeFail = 1015,
+};
+
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.Server.Connection,
@@ -129,7 +148,40 @@ pub const Client = struct {
     ///
     /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
     pub fn close(self: *const Self) anyerror!bool {
-        return try self._sendAll(MessageType.Close, true, "");
+        return try self.closeExpanded(CloseCodes.Normal, null);
+    }
+
+    /// Send a custom "close" message to this client.
+    ///
+    /// **IMPORTANT:** The connection will only be closed when the client sends this message back.
+    pub fn closeExpanded(self: *const Self, code: CloseCodes, msg: ?[]const u8) anyerror!bool {
+        var data: ?[]u8 = null;
+        defer {
+            if (data != null) {
+                self._private.allocator.free(data.?);
+            }
+        }
+
+        const code_val: u16 = @intFromEnum(code);
+        const code_array: [2]u8 = .{
+            @intCast((code_val >> 8) & 0b11111111),
+            @intCast(code_val & 0b11111111),
+        };
+
+        if (msg != null) {
+            data = try self._private.allocator.alloc(u8, (2 + msg.?.len));
+            @memcpy(data.?[2..], msg.?);
+        } else {
+            data = try self._private.allocator.alloc(u8, 2);
+        }
+        @memcpy(data.?[0..2], code_array[0..2]);
+
+        return try self._sendAll(MessageType.Close, true, data.?);
+    }
+
+    /// Close the connection from this client immediately. (No "close" message is sent to the client!)
+    pub fn closeImmediately(self: *Self) void {
+        self._private.close_conn = true;
     }
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
@@ -140,11 +192,6 @@ pub const Client = struct {
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
     pub fn pong(self: *const Self) anyerror!bool {
         return try self._sendAll(MessageType.Pong, true, "");
-    }
-
-    /// Close the connection from this client immediately. (No "close" message is sent to the client!)
-    pub fn closeImmediately(self: *Self) void {
-        self._private.close_conn = true;
     }
 
     fn _deinit(self: *Self) void {
