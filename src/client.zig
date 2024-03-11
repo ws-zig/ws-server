@@ -73,19 +73,25 @@ pub const Client = struct {
         return true;
     }
 
-    fn _sendAll(self: *const Self, comptime type_: MessageType, comptime last_msg: bool, data: []const u8) anyerror!bool {
+    fn _sendAll(
+        self: *const Self,
+        comptime type_: MessageType,
+        comptime last_msg: bool,
+        comptime compression: bool,
+        data: []const u8,
+    ) anyerror!bool {
         var message: Message = .{ .allocator = self._private.allocator };
         defer message.deinit();
 
         message.setType(type_);
         message.setLastMessage(last_msg);
-        try message.write(data, self._private.compression);
+        try message.write(data, compression);
         return try self._writeAll(message.get().?);
     }
 
     fn _send(self: *const Self, comptime type_: MessageType, data: []const u8) anyerror!bool {
         if (data.len <= 65531) {
-            return try self._sendAll(type_, true, data);
+            return try self._sendAll(type_, true, self._private.compression, data);
         }
 
         var message_idx: usize = 0;
@@ -98,14 +104,29 @@ pub const Client = struct {
 
                 if (data_left > 65531) {
                     message_idx += 65531;
-                    message_result = try self._sendAll(MessageType.Continue, false, data[start_message_idx..message_idx]);
+                    message_result = try self._sendAll(
+                        MessageType.Continue,
+                        false,
+                        self._private.compression,
+                        data[start_message_idx..message_idx],
+                    );
                 } else {
                     message_idx += data_left;
-                    message_result = try self._sendAll(MessageType.Continue, true, data[start_message_idx..message_idx]);
+                    message_result = try self._sendAll(
+                        MessageType.Continue,
+                        true,
+                        self._private.compression,
+                        data[start_message_idx..message_idx],
+                    );
                 }
             } else {
                 message_idx += 65531;
-                message_result = try self._sendAll(type_, false, data[0..message_idx]);
+                message_result = try self._sendAll(
+                    type_,
+                    false,
+                    self._private.compression,
+                    data[0..message_idx],
+                );
             }
 
             // The message could not be sent.
@@ -126,7 +147,7 @@ pub const Client = struct {
 
     /// Send a "text" message to this client.
     pub fn textAll(self: *const Self, data: []const u8) anyerror!bool {
-        return try self._sendAll(MessageType.Text, true, data);
+        return try self._sendAll(MessageType.Text, true, self._private.compression, data);
     }
 
     /// Send a "text" message to this client in 65535 byte chunks.
@@ -136,7 +157,7 @@ pub const Client = struct {
 
     /// Send a "binary" message to this client.
     pub fn binaryAll(self: *const Self, data: []const u8) anyerror!bool {
-        return try self._sendAll(MessageType.Binary, true, data);
+        return try self._sendAll(MessageType.Binary, true, self._private.compression, data);
     }
 
     /// Send a "binary" message to this client in 65535 byte chunks.
@@ -176,7 +197,7 @@ pub const Client = struct {
         }
         @memcpy(data.?[0..2], code_array[0..2]);
 
-        return try self._sendAll(MessageType.Close, true, data.?);
+        return try self._sendAll(MessageType.Close, true, false, data.?);
     }
 
     /// Close the connection from this client immediately. (No "close" message is sent to the client!)
@@ -186,12 +207,12 @@ pub const Client = struct {
 
     /// Send a "ping" message to this client. (A "pong" message should come back)
     pub fn ping(self: *const Self) anyerror!bool {
-        return try self._sendAll(MessageType.Ping, true, "");
+        return try self._sendAll(MessageType.Ping, true, false, "");
     }
 
     /// Send a "pong" message to this client. (Send this pong message if you received a "ping" message from this client)
     pub fn pong(self: *const Self) anyerror!bool {
-        return try self._sendAll(MessageType.Pong, true, "");
+        return try self._sendAll(MessageType.Pong, true, false, "");
     }
 
     fn _deinit(self: *Self) void {
