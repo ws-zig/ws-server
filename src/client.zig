@@ -97,51 +97,22 @@ pub const Client = struct {
             return try self._sendAll(type_, true, self._private.compression, data);
         }
 
-        var message_idx: usize = 0;
-        while (true) {
-            var message_result = false;
+        var data_iter = std.mem.window(u8, data, 65531, 65531);
+        while (data_iter.next()) |item| {
+            const item_type = if (data_iter.index == 65531) type_ else MessageType.Continue;
+            const last_item = data_iter.index == null;
 
-            if (message_idx > 0) {
-                const data_left: usize = data.len - message_idx;
-                const start_message_idx = message_idx;
+            const send_result = try self._sendAll(
+                item_type,
+                last_item,
+                self._private.compression,
+                item,
+            );
 
-                if (data_left > 65531) {
-                    message_idx += 65531;
-                    message_result = try self._sendAll(
-                        MessageType.Continue,
-                        false,
-                        self._private.compression,
-                        data[start_message_idx..message_idx],
-                    );
-                } else {
-                    message_idx += data_left;
-                    message_result = try self._sendAll(
-                        MessageType.Continue,
-                        true,
-                        self._private.compression,
-                        data[start_message_idx..message_idx],
-                    );
-                }
-            } else {
-                message_idx += 65531;
-                message_result = try self._sendAll(
-                    type_,
-                    false,
-                    self._private.compression,
-                    data[0..message_idx],
-                );
-            }
-
-            // The message could not be sent.
-            // Stop here as the result will only be
-            // `false` if the client is disconnected.
-            if (message_result == false) {
+            if (send_result == false) {
+                // Stop here as the result will only be
+                // `false` if the client is disconnected.
                 return false;
-            }
-
-            // All data has been sent.
-            if (data.len <= message_idx) {
-                break;
             }
         }
 
