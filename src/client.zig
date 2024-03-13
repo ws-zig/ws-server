@@ -44,10 +44,13 @@ pub const CloseCodes = enum(u16) {
 const PrivateFields = struct {
     allocator: *const std.mem.Allocator,
     connection: std.net.Server.Connection,
+    // This value was set by the server configuration.
+    // true = Send data compressed; false = Send data uncompressed
     compression: bool,
+    // This value was set by the server configuration.
     max_msg_size: usize,
 
-    // true = Connection is closed by the server. Breaks the message loop.
+    // true = Stop the message receiving loop
     close_conn: bool = false,
 };
 
