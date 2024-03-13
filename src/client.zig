@@ -187,7 +187,6 @@ pub const Client = struct {
 
     fn _deinit(self: *Self) void {
         self._private.connection.stream.close();
-        self.* = undefined;
     }
 };
 
