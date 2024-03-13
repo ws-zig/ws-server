@@ -166,6 +166,11 @@ pub const Frame = struct {
             extra_len += 4;
         }
 
+        if ((self.bytes.len - extra_len) != self._payload_len) {
+            // This can happen if `msg_buffer_size` is set too low and not all bytes are read.
+            return error.MissingBytes;
+        }
+
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
         @memcpy(self._payload_data.?, self.bytes[(extra_len)..(extra_len + self._payload_len)]);
 
