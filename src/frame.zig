@@ -101,7 +101,6 @@ pub const Frame = struct {
         self._fin = (self.bytes[0] & 0b10000000) != 0;
         //std.debug.print("fin: {any}\n", .{self._fin});
 
-        // The extensions. Not currently implemented (02/29/2024).
         self._rsv1 = (self.bytes[0] & 0b01000000) != 0;
         self._rsv2 = self.bytes[0] & 0b00100000;
         self._rsv3 = self.bytes[0] & 0b00010000;
@@ -220,7 +219,7 @@ pub const Frame = struct {
 
         var extra_len: u8 = 0;
         var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        extra_data[0] = self._opcode | 0b00000000;
+        extra_data[0] = self._opcode;
         if (self._fin == true) {
             extra_data[0] |= 0b10000000;
         }
@@ -238,11 +237,11 @@ pub const Frame = struct {
         }
 
         if (self.bytes.len <= 125) {
-            extra_data[1] = @intCast(self.bytes.len | 0b00000000); // 0b10000000 = masked
+            extra_data[1] = @intCast(self.bytes.len);
             extra_len += 2;
         } else if (self.bytes.len <= 65531) {
-            extra_data[1] = 126 | 0b00000000; // 0b10000000 = masked
-            extra_data[2] = @intCast(self.bytes.len >> 8 & 0b11111111);
+            extra_data[1] = 126;
+            extra_data[2] = @intCast((self.bytes.len >> 8) & 0b11111111);
             extra_data[3] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 4;
         } else {
@@ -250,14 +249,14 @@ pub const Frame = struct {
                 return error.Frame_64bitRequired;
             }
 
-            extra_data[1] = 127 | 0b00000000; // 0b10000000 = masked
-            extra_data[2] = @intCast(self.bytes.len >> 56 & 0b11111111);
-            extra_data[3] = @intCast(self.bytes.len >> 48 & 0b11111111);
-            extra_data[4] = @intCast(self.bytes.len >> 40 & 0b11111111);
-            extra_data[5] = @intCast(self.bytes.len >> 32 & 0b11111111);
-            extra_data[6] = @intCast(self.bytes.len >> 24 & 0b11111111);
-            extra_data[7] = @intCast(self.bytes.len >> 16 & 0b11111111);
-            extra_data[8] = @intCast(self.bytes.len >> 8 & 0b11111111);
+            extra_data[1] = 127;
+            extra_data[2] = @intCast((self.bytes.len >> 56) & 0b11111111);
+            extra_data[3] = @intCast((self.bytes.len >> 48) & 0b11111111);
+            extra_data[4] = @intCast((self.bytes.len >> 40) & 0b11111111);
+            extra_data[5] = @intCast((self.bytes.len >> 32) & 0b11111111);
+            extra_data[6] = @intCast((self.bytes.len >> 24) & 0b11111111);
+            extra_data[7] = @intCast((self.bytes.len >> 16) & 0b11111111);
+            extra_data[8] = @intCast((self.bytes.len >> 8) & 0b11111111);
             extra_data[9] = @intCast(self.bytes.len & 0b11111111);
             extra_len += 10;
         }
