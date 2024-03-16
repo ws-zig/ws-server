@@ -151,7 +151,7 @@ pub const Frame = struct {
                 @as(usize, self.bytes[6]) << 24 |
                 @as(usize, self.bytes[7]) << 16 |
                 @as(usize, self.bytes[8]) << 8 |
-                self.bytes[9];
+                @as(usize, self.bytes[9]);
         }
 
         var masking_key: [4]u8 = .{ 0x00, 0x00, 0x00, 0x00 };
@@ -165,7 +165,7 @@ pub const Frame = struct {
             extra_len += 4;
         }
 
-        if ((self.bytes.len - extra_len) != self._payload_len) {
+        if ((self.bytes.len - extra_len) < self._payload_len) {
             // This can happen if `msg_buffer_size` is set too low and not all bytes are read.
             return error.MissingBytes;
         }
@@ -173,8 +173,8 @@ pub const Frame = struct {
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
         @memcpy(self._payload_data.?, self.bytes[(extra_len)..(extra_len + self._payload_len)]);
 
-        for (self._payload_data.?, 0..) |v, i| {
-            self._payload_data.?[i] = (v ^ masking_key[i % 4]);
+        for (0..self._payload_data.?.len) |i| {
+            self._payload_data.?[i] ^= masking_key[i % 4];
         }
 
         if (self._rsv1 == true) {
@@ -198,7 +198,7 @@ pub const Frame = struct {
         var result = std.ArrayList(u8).init(self.allocator.*);
         defer result.deinit();
         try std.compress.flate.decompress(data_stream.reader(), result.writer());
-        return result.toOwnedSlice();
+        return try result.toOwnedSlice();
     }
 
     fn _compress(self: *const Self, data: []const u8) anyerror![]u8 {
@@ -210,16 +210,16 @@ pub const Frame = struct {
     }
 
     pub fn write(self: *Self) anyerror![]u8 {
-        var bytes_compressed = false;
+        var free_bytes = false;
         defer {
-            if (bytes_compressed == true) {
+            if (free_bytes == true) {
                 self.allocator.free(self.bytes);
             }
         }
 
-        var extra_len: u8 = 0;
-        var extra_data: [10]u8 = .{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-        extra_data[0] = self._opcode;
+        var extra_data: [10]u8 = .{ self._opcode, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        var extra_data_len: u8 = 1;
+
         if (self._fin == true) {
             extra_data[0] |= 0b10000000;
         }
@@ -232,18 +232,18 @@ pub const Frame = struct {
                 extra_data[0] |= 0b01000000;
 
                 self.bytes = try self._compress(self.bytes);
-                bytes_compressed = true;
+                free_bytes = true;
             }
         }
 
         if (self.bytes.len <= 125) {
             extra_data[1] = @intCast(self.bytes.len);
-            extra_len += 2;
+            extra_data_len += 1;
         } else if (self.bytes.len <= 65531) {
             extra_data[1] = 126;
             extra_data[2] = @intCast((self.bytes.len >> 8) & 0b11111111);
             extra_data[3] = @intCast(self.bytes.len & 0b11111111);
-            extra_len += 4;
+            extra_data_len += 3;
         } else {
             if (Utils.CPU.is64bit() == false) {
                 return error.Frame_64bitRequired;
@@ -258,12 +258,12 @@ pub const Frame = struct {
             extra_data[7] = @intCast((self.bytes.len >> 16) & 0b11111111);
             extra_data[8] = @intCast((self.bytes.len >> 8) & 0b11111111);
             extra_data[9] = @intCast(self.bytes.len & 0b11111111);
-            extra_len += 10;
+            extra_data_len += 9;
         }
 
-        self._payload_data = try self.allocator.alloc(u8, extra_len + self.bytes.len);
-        @memcpy(self._payload_data.?[0..extra_len], extra_data[0..extra_len]);
-        @memcpy(self._payload_data.?[extra_len..], self.bytes);
+        self._payload_data = try self.allocator.alloc(u8, extra_data_len + self.bytes.len);
+        @memcpy(self._payload_data.?[0..extra_data_len], extra_data[0..extra_data_len]);
+        @memcpy(self._payload_data.?[extra_data_len..], self.bytes);
         return self._payload_data.?;
     }
 

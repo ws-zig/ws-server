@@ -204,6 +204,9 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
     while (self._private.close_conn == false) {
         var buffer: []u8 = try self._private.allocator.alloc(u8, msg_buffer_size);
         defer self._private.allocator.free(buffer);
+        // TODO:
+        // If the client sends three messages and the first one is processed,
+        // the last two messages will be read at the same time.
         const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
             switch (err) {
                 // The connection was not closed properly by this client.
