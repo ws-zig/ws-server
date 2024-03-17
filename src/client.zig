@@ -190,7 +190,7 @@ pub const Client = struct {
     }
 };
 
-pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anyerror!void {
+pub fn handle(self: *Client, read_buffer_size: usize, cbs: *const Callbacks) anyerror!void {
     defer {
         cbs.disconnect.handle(self);
         self._deinit();
@@ -210,7 +210,7 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
             messages.deinit();
         }
 
-        var buffer: []u8 = try allocator.alloc(u8, msg_buffer_size);
+        var buffer: []u8 = try allocator.alloc(u8, read_buffer_size);
         defer allocator.free(buffer);
         const buffer_len = stream.read(buffer) catch |err| {
             switch (err) {

@@ -10,8 +10,8 @@ pub fn main() anyerror!void {
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.setConfig(.{
-        // Specifies how large a single received message can be.
-        .msg_buffer_size = 65535, // default: 65535
+        // Specifies how large the buffer of bytes to be read should be.
+        .read_buffer_size = 65535, // default: 65535
         // Specifies how large a complete message can be.
         .max_msg_size = 131070, // default: std.math.maxInt(u32)
 

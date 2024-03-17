@@ -54,7 +54,7 @@ pub const Server = struct {
 
     /// Listen (run) the server.
     pub fn listen(self: *Self) anyerror!void {
-        if (self._private.config.msg_buffer_size > 65535) {
+        if (self._private.config.read_buffer_size > 65535) {
             if (Utils.CPU.is64bit() == false) {
                 // On non-64-bit architectures,
                 // you cannot process messages larger than 65535 bytes.
@@ -62,8 +62,8 @@ pub const Server = struct {
                 return error.MsgBufferSizeExceeded;
             }
         }
-        if (self._private.config.max_msg_size < self._private.config.msg_buffer_size) {
-            // The `max_msg_size` must equal to or be larger than `msg_buffer_size`.
+        if (self._private.config.max_msg_size < self._private.config.read_buffer_size) {
+            // The `max_msg_size` must equal to or be larger than `read_buffer_size`.
             return error.MaxMsgSizeTooLow;
         }
 
@@ -102,7 +102,7 @@ pub const Server = struct {
             return;
         };
         if (handshake_result == true) {
-            ClientFile.handle(&client, self._private.config.msg_buffer_size, &self._private.callbacks) catch |err| {
+            ClientFile.handle(&client, self._private.config.read_buffer_size, &self._private.callbacks) catch |err| {
                 self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
                 return;
             };

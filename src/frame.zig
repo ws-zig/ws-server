@@ -174,7 +174,7 @@ pub const Frame = struct {
 
         const bytes_calc: usize = self.bytes.len - extra_len;
         if (bytes_calc < self._payload_len) {
-            // This can happen if `msg_buffer_size` is set too low and not all bytes are read.
+            // This can happen if `read_buffer_size` is set too low and not all bytes are read.
             return error.MissingBytes;
         } else if (bytes_calc > self._payload_len) {
             self._bytes_left = bytes_calc - self._payload_len;

@@ -20,8 +20,8 @@ const Experimental = struct {
 };
 
 pub const Config = struct {
-    /// Specifies how large a single received message can be.
-    msg_buffer_size: usize = 65535,
+    /// Specifies how large the buffer of bytes to be read should be.
+    read_buffer_size: usize = 65535,
     /// Specifies how large a complete message can be.
     max_msg_size: usize = std.math.maxInt(u32),
 

@@ -86,7 +86,7 @@ pub fn main() anyerror!void {
 
     var server = Server.create(&allocator, "127.0.0.1", 8080);
     server.setConfig(.{
-        .msg_buffer_size = 1024,
+        .read_buffer_size = 1024,
     });
     server.onHandshake(&_onHandshake);
     server.onDisconnect(&_onDisconnect);
