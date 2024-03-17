@@ -232,6 +232,15 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
 }
 
 fn _bytesToMessage(allocator: *const Allocator, buffer: []u8, message_list: *std.ArrayList(?Message), max_msg_size: usize) anyerror!void {
+    errdefer {
+        for (0..message_list.items.len) |idx| {
+            if (message_list.items[idx] != null) {
+                message_list.items[idx].?.deinit();
+            }
+        }
+        message_list.clearAndFree();
+    }
+
     var temp_message: ?Message = null;
     var bytes_read_from: usize = 0;
     while (true) {
