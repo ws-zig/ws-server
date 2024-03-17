@@ -50,8 +50,6 @@ const PrivateFields = struct {
     // This value was set by the server configuration.
     max_msg_size: usize,
 
-    messages: std.ArrayList(?Message) = undefined,
-
     // true = Stop the message receiving loop
     close_conn: bool = false,
 };
@@ -189,7 +187,6 @@ pub const Client = struct {
 
     fn _deinit(self: *Self) void {
         self._private.connection.stream.close();
-        self._private.messages.deinit();
     }
 };
 
@@ -201,11 +198,18 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
 
     const allocator = self._private.allocator;
     const stream = &self._private.connection.stream;
-    const messages = &self._private.messages;
-
-    messages.* = std.ArrayList(?Message).init(allocator.*);
 
     while (self._private.close_conn == false) {
+        var messages = std.ArrayList(?Message).init(allocator.*);
+        defer {
+            for (0..messages.items.len) |idx| {
+                if (messages.items[idx] != null) {
+                    messages.items[idx].?.deinit();
+                }
+            }
+            messages.deinit();
+        }
+
         var buffer: []u8 = try allocator.alloc(u8, msg_buffer_size);
         defer allocator.free(buffer);
         const buffer_len = stream.read(buffer) catch |err| {
@@ -217,12 +221,12 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
             }
         };
 
-        _bytesToMessage(allocator, buffer[0..buffer_len], messages, self._private.max_msg_size) catch |err| {
+        _bytesToMessage(allocator, buffer[0..buffer_len], &messages, self._private.max_msg_size) catch |err| {
             cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
             return;
         };
 
-        _handleMessages(self, messages, cbs) catch |err| {
+        _handleMessages(self, &messages, cbs) catch |err| {
             if (err != error.BreakLoop) {
                 cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
             }
@@ -232,15 +236,6 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
 }
 
 fn _bytesToMessage(allocator: *const Allocator, buffer: []u8, message_list: *std.ArrayList(?Message), max_msg_size: usize) anyerror!void {
-    errdefer {
-        for (0..message_list.items.len) |idx| {
-            if (message_list.items[idx] != null) {
-                message_list.items[idx].?.deinit();
-            }
-        }
-        message_list.clearAndFree();
-    }
-
     var temp_message: ?Message = null;
     var bytes_read_from: usize = 0;
     while (true) {
@@ -268,15 +263,6 @@ fn _bytesToMessage(allocator: *const Allocator, buffer: []u8, message_list: *std
 }
 
 fn _handleMessages(self: *Client, message_list: *std.ArrayList(?Message), cbs: *const Callbacks) anyerror!void {
-    defer {
-        for (0..message_list.items.len) |idx| {
-            if (message_list.items[idx] != null) {
-                message_list.items[idx].?.deinit();
-            }
-        }
-        message_list.clearAndFree();
-    }
-
     for (0..message_list.items.len) |idx| {
         const message = &message_list.items[idx];
 
