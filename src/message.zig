@@ -50,6 +50,7 @@ pub const Message = struct {
     max_msg_size: usize = 0,
 
     _bytes: ?[]u8 = null,
+    _bytes_left: usize = 0,
     // Tells us whether the message is complete or whether we need to wait for new data.
     _lastMessage: bool = false,
     _type: ?Type = null,
@@ -58,6 +59,10 @@ pub const Message = struct {
 
     pub inline fn get(self: *const Self) ?[]u8 {
         return self._bytes;
+    }
+
+    pub inline fn getBytesLeft(self: *const Self) usize {
+        return self._bytes_left;
     }
 
     pub inline fn isLastMessage(self: *const Self) bool {
@@ -81,6 +86,7 @@ pub const Message = struct {
         defer frame.deinit();
 
         const data: ?[]u8 = try frame.read();
+        self._bytes_left = frame.getBytesLeft();
 
         self._lastMessage = frame.isLastFrame();
         if (self._type == null) {

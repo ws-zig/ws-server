@@ -50,6 +50,8 @@ const PrivateFields = struct {
     // This value was set by the server configuration.
     max_msg_size: usize,
 
+    messages: std.ArrayList(?Message) = undefined,
+
     // true = Stop the message receiving loop
     close_conn: bool = false,
 };
@@ -187,27 +189,26 @@ pub const Client = struct {
 
     fn _deinit(self: *Self) void {
         self._private.connection.stream.close();
+        self._private.messages.deinit();
     }
 };
 
 pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anyerror!void {
-    var message: ?Message = null;
     defer {
-        if (message != null) {
-            message.?.deinit();
-            message = null;
-        }
         cbs.disconnect.handle(self);
         self._deinit();
     }
 
+    const allocator = self._private.allocator;
+    const stream = &self._private.connection.stream;
+    const messages = &self._private.messages;
+
+    messages.* = std.ArrayList(?Message).init(allocator.*);
+
     while (self._private.close_conn == false) {
-        var buffer: []u8 = try self._private.allocator.alloc(u8, msg_buffer_size);
-        defer self._private.allocator.free(buffer);
-        // TODO:
-        // If the client sends three messages and the first one is processed,
-        // the last two messages will be read at the same time.
-        const buffer_len = self._private.connection.stream.read(buffer) catch |err| {
+        var buffer: []u8 = try allocator.alloc(u8, msg_buffer_size);
+        defer allocator.free(buffer);
+        const buffer_len = stream.read(buffer) catch |err| {
             switch (err) {
                 // The connection was not closed properly by this client.
                 OsReadError.ConnectionResetByPeer, OsReadError.ConnectionTimedOut, OsReadError.SocketNotConnected => return,
@@ -216,35 +217,74 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
             }
         };
 
-        if (message == null) {
-            message = .{ .allocator = self._private.allocator, .max_msg_size = self._private.max_msg_size };
-        }
-        try message.?.read(buffer[0..buffer_len]);
+        _bytesToMessage(allocator, buffer[0..buffer_len], messages, self._private.max_msg_size) catch |err| {
+            cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
+            return;
+        };
 
-        // Check whether the message is now complete.
-        if (message.?.isLastMessage() == false) {
-            switch (message.?.getType().?) {
+        _handleMessages(self, messages, cbs) catch |err| {
+            if (err != error.BreakLoop) {
+                cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
+            }
+            return;
+        };
+    }
+}
+
+fn _bytesToMessage(allocator: *const Allocator, buffer: []u8, message_list: *std.ArrayList(?Message), max_msg_size: usize) anyerror!void {
+    var temp_message: ?Message = null;
+    var bytes_read_from: usize = 0;
+    while (true) {
+        if (temp_message == null) {
+            temp_message = .{ .allocator = allocator, .max_msg_size = max_msg_size };
+        }
+        try temp_message.?.read(buffer[bytes_read_from..]);
+        if (temp_message.?.isLastMessage() == false) {
+            switch (temp_message.?.getType().?) {
                 // Should contain no data and therefore be the last message.
                 MessageType.Continue, MessageType.Close, MessageType.Ping, MessageType.Pong => return error.LastMessageExpected,
-                inline else => {},
+                // TODO: ?
+                inline else => return error.MessageContinuationNotImplemented,
             }
-            continue;
         }
 
-        switch (message.?.getType().?) {
+        try message_list.append(temp_message);
+
+        if (temp_message.?.getBytesLeft() == 0) {
+            break;
+        }
+        bytes_read_from = buffer.len - temp_message.?.getBytesLeft();
+        temp_message = null;
+    }
+}
+
+fn _handleMessages(self: *Client, message_list: *std.ArrayList(?Message), cbs: *const Callbacks) anyerror!void {
+    defer {
+        for (0..message_list.items.len) |idx| {
+            if (message_list.items[idx] != null) {
+                message_list.items[idx].?.deinit();
+            }
+        }
+        message_list.clearAndFree();
+    }
+
+    for (0..message_list.items.len) |idx| {
+        const message = &message_list.items[idx];
+
+        switch (message.*.?.getType().?) {
             MessageType.Continue => { // Should never happen.
                 // The message type should not be "Continue".
                 return error.MessageTypeContinue;
             },
             MessageType.Text => { // Process received text message...
-                cbs.text.handle(self, message.?.get());
+                cbs.text.handle(self, message.*.?.get());
             },
             MessageType.Binary => { // Process received binary message...
-                cbs.binary.handle(self, message.?.get());
+                cbs.binary.handle(self, message.*.?.get());
             },
             MessageType.Close => { // The client sends us a "close" message, so he wants to disconnect properly.
                 cbs.close.handle(self);
-                return;
+                return error.BreakLoop;
             },
             MessageType.Ping => { // "Hello server, are you there?"
                 cbs.ping.handle(self);
@@ -254,9 +294,7 @@ pub fn handle(self: *Client, msg_buffer_size: usize, cbs: *const Callbacks) anye
             },
         }
 
-        // We need to deinitialize the message and set the value to `null`,
-        // otherwise the next loop will not create a new message and write the new data into the old message.
-        message.?.deinit();
-        message = null;
+        message.*.?.deinit();
+        message.* = null;
     }
 }

@@ -52,6 +52,9 @@ pub const Frame = struct {
     allocator: *const Allocator,
     bytes: []const u8,
 
+    // Bytes that do not belong to this frame.
+    _bytes_left: usize = 0,
+
     _fin: bool = false,
     _rsv1: bool = false, // Compressed
     _rsv2: u8 = 0,
@@ -63,6 +66,10 @@ pub const Frame = struct {
     _payload_data: ?[]u8 = null,
 
     const Self = @This();
+
+    pub inline fn getBytesLeft(self: *const Self) usize {
+        return self._bytes_left;
+    }
 
     pub inline fn isLastFrame(self: *const Self) bool {
         return self._fin;
@@ -165,9 +172,12 @@ pub const Frame = struct {
             extra_len += 4;
         }
 
-        if ((self.bytes.len - extra_len) < self._payload_len) {
+        const bytes_calc: usize = self.bytes.len - extra_len;
+        if (bytes_calc < self._payload_len) {
             // This can happen if `msg_buffer_size` is set too low and not all bytes are read.
             return error.MissingBytes;
+        } else if (bytes_calc > self._payload_len) {
+            self._bytes_left = bytes_calc - self._payload_len;
         }
 
         self._payload_data = try self.allocator.alloc(u8, self._payload_len);
