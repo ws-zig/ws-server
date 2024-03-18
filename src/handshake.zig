@@ -142,11 +142,11 @@ pub const Handshake = struct {
         defer headers.deinit();
         var first_header_line = true;
         while (true) {
-            const line: []u8 = stream.reader().readUntilDelimiterAlloc(allocator.*, '\n', 128) catch |err| {
-                if (err == error.ConnectionResetByPeer) {
+            const line: []u8 = stream.reader().readUntilDelimiterAlloc(allocator.*, '\n', 128) catch |e| {
+                if (e == error.ConnectionResetByPeer) {
                     return false;
                 }
-                return err;
+                return e;
             };
             defer allocator.free(line);
 
@@ -159,12 +159,12 @@ pub const Handshake = struct {
                 break;
             }
 
-            headers.read(line[0..(line.len - 1)]) catch |err| {
-                if (err == error.LineSplittingFailed) {
+            headers.read(line[0..(line.len - 1)]) catch |e| {
+                if (e == error.LineSplittingFailed) {
                     stream.writer().writeAll("HTTP/1.1 400 Bad Request\r\n\r\n") catch {};
                     return false;
                 }
-                return err;
+                return e;
             };
         }
 
@@ -175,24 +175,24 @@ pub const Handshake = struct {
             }
         }
 
-        const key: []const u8 = headers.generateKey() catch |err| {
-            switch (err) {
+        const key: []const u8 = headers.generateKey() catch |e| {
+            switch (e) {
                 error.MapHasNotBeenInitialized, error.MissingWebSocketKey => {
                     stream.writer().writeAll("HTTP/1.1 400 Bad Request\r\n\r\n") catch {};
                     return false;
                 },
-                else => return err,
+                else => return e,
             }
         };
         defer allocator.free(key);
         const response: []const u8 = try headers.createResponse(key);
         defer allocator.free(response);
 
-        stream.writeAll(response) catch |err| {
-            if (err == error.ConnectionResetByPeer) {
+        stream.writeAll(response) catch |e| {
+            if (e == error.ConnectionResetByPeer) {
                 return false;
             }
-            return err;
+            return e;
         };
 
         return self.cbs.handshake.handle(self.client, &headers.getMap().?);

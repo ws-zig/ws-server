@@ -66,12 +66,12 @@ pub const Client = struct {
     }
 
     fn _writeAll(self: *const Self, data: []const u8) anyerror!bool {
-        self._private.connection.stream.writeAll(data) catch |err| {
+        self._private.connection.stream.writeAll(data) catch |e| {
             // The connection was closed by the client.
-            if (err == error.ConnectionResetByPeer) {
+            if (e == error.ConnectionResetByPeer) {
                 return false;
             }
-            return err;
+            return e;
         };
         return true;
     }
@@ -212,23 +212,23 @@ pub fn handle(self: *Client, read_buffer_size: usize, cbs: *const Callbacks) any
 
         var buffer: []u8 = try allocator.alloc(u8, read_buffer_size);
         defer allocator.free(buffer);
-        const buffer_len = stream.read(buffer) catch |err| {
-            switch (err) {
+        const buffer_len = stream.read(buffer) catch |e| {
+            switch (e) {
                 // The connection was not closed properly by this client.
                 OsReadError.ConnectionResetByPeer, OsReadError.ConnectionTimedOut, OsReadError.SocketNotConnected => return,
                 // Something went wrong ...
-                else => return err,
+                else => return e,
             }
         };
 
-        _bytesToMessage(allocator, buffer[0..buffer_len], &messages, self._private.max_msg_size) catch |err| {
-            cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
+        _bytesToMessage(allocator, buffer[0..buffer_len], &messages, self._private.max_msg_size) catch |e| {
+            cbs.err.handle(self, &.{ ._error = e, ._location = @src() });
             return;
         };
 
-        _handleMessages(self, &messages, cbs) catch |err| {
-            if (err != error.BreakLoop) {
-                cbs.error_.handle(self, &.{ ._error = err, ._location = @src() });
+        _handleMessages(self, &messages, cbs) catch |e| {
+            if (e != error.BreakLoop) {
+                cbs.err.handle(self, &.{ ._error = e, ._location = @src() });
             }
             return;
         };

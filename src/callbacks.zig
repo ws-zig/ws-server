@@ -29,7 +29,7 @@ pub const Fn = ?*const fn (client: *Client) anyerror!void;
 pub const Callbacks = struct {
     handshake: HandshakeCallback = .{ .handler = null },
     disconnect: FnCallback = .{ .name = "Disconnect", .handler = null },
-    error_: ErrorCallback = .{ .handler = null },
+    err: ErrorCallback = .{ .handler = null },
 
     text: OStrCallback = .{ .name = "Text", .handler = null },
     binary: OStrCallback = .{ .name = "Binary", .handler = null },
@@ -45,8 +45,8 @@ const HandshakeCallback = struct {
 
     pub fn handle(self: *const Self, client: *Client, headers: *const std.StringHashMap([]const u8)) bool {
         if (self.handler != null) {
-            const cb_result = self.handler.?(client, headers) catch |err| {
-                std.debug.print("Handshake callback failed: {any}\n", .{err});
+            const cb_result = self.handler.?(client, headers) catch |e| {
+                std.debug.print("Handshake callback failed: {any}\n", .{e});
                 return false;
             };
             return cb_result;
@@ -62,8 +62,8 @@ const ErrorCallback = struct {
 
     pub fn handle(self: *const Self, client: ?*Client, info: *const Error) void {
         if (self.handler != null) {
-            self.handler.?(client, info) catch |err| {
-                std.debug.print("Error callback failed: {any}\n", .{err});
+            self.handler.?(client, info) catch |e| {
+                std.debug.print("Error callback failed: {any}\n", .{e});
             };
         }
     }
@@ -77,8 +77,8 @@ const OStrCallback = struct {
 
     pub fn handle(self: *const Self, client: *Client, data: ?[]const u8) void {
         if (self.handler != null) {
-            self.handler.?(client, data) catch |err| {
-                std.debug.print("{s} callback failed: {any}\n", .{ self.name, err });
+            self.handler.?(client, data) catch |e| {
+                std.debug.print("{s} callback failed: {any}\n", .{ self.name, e });
             };
         }
     }
@@ -92,8 +92,8 @@ const FnCallback = struct {
 
     pub fn handle(self: *const Self, client: *Client) void {
         if (self.handler != null) {
-            self.handler.?(client) catch |err| {
-                std.debug.print("{s} callback failed: {any}\n", .{ self.name, err });
+            self.handler.?(client) catch |e| {
+                std.debug.print("{s} callback failed: {any}\n", .{ self.name, e });
             };
         }
     }

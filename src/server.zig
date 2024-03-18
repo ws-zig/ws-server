@@ -72,12 +72,12 @@ pub const Server = struct {
         defer server.deinit();
 
         while (true) {
-            const connection: net.Server.Connection = server.accept() catch |err| {
-                self._private.callbacks.error_.handle(null, &.{ ._error = err, ._location = @src() });
+            const connection: net.Server.Connection = server.accept() catch |e| {
+                self._private.callbacks.err.handle(null, &.{ ._error = e, ._location = @src() });
                 continue;
             };
-            const thread: std.Thread = std.Thread.spawn(.{}, _handleConnection, .{ self, connection }) catch |err| {
-                self._private.callbacks.error_.handle(null, &.{ ._error = err, ._location = @src() });
+            const thread: std.Thread = std.Thread.spawn(.{}, _handleConnection, .{ self, connection }) catch |e| {
+                self._private.callbacks.err.handle(null, &.{ ._error = e, ._location = @src() });
                 continue;
             };
             thread.detach();
@@ -97,13 +97,13 @@ pub const Server = struct {
             .client = &client,
             .cbs = &self._private.callbacks,
         };
-        const handshake_result = handshake.handle() catch |err| {
-            self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
+        const handshake_result = handshake.handle() catch |e| {
+            self._private.callbacks.err.handle(&client, &.{ ._error = e, ._location = @src() });
             return;
         };
         if (handshake_result == true) {
-            ClientFile.handle(&client, self._private.config.read_buffer_size, &self._private.callbacks) catch |err| {
-                self._private.callbacks.error_.handle(&client, &.{ ._error = err, ._location = @src() });
+            ClientFile.handle(&client, self._private.config.read_buffer_size, &self._private.callbacks) catch |e| {
+                self._private.callbacks.err.handle(&client, &.{ ._error = e, ._location = @src() });
                 return;
             };
         }
@@ -153,7 +153,7 @@ pub const Server = struct {
     /// // ...
     /// ```
     pub fn onError(self: *Self, cb: CallbacksFile.ErrorFn) void {
-        self._private.callbacks.error_.handler = cb;
+        self._private.callbacks.err.handler = cb;
     }
 
     /// Set a callback when a "text" message is received from the client.
