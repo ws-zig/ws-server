@@ -78,7 +78,7 @@ pub const Client = struct {
 
     fn _sendAll(
         self: *const Self,
-        type_: MessageType,
+        m_type: MessageType,
         last_msg: bool,
         compression: bool,
         data: []const u8,
@@ -86,20 +86,20 @@ pub const Client = struct {
         var message: Message = .{ .allocator = self._private.allocator };
         defer message.deinit();
 
-        message.setType(type_);
+        message.setType(m_type);
         message.setLastMessage(last_msg);
         try message.write(data, compression);
         return try self._writeAll(message.get().?);
     }
 
-    fn _send(self: *const Self, type_: MessageType, data: []const u8) anyerror!bool {
+    fn _send(self: *const Self, m_type: MessageType, data: []const u8) anyerror!bool {
         if (data.len <= 65531) {
-            return try self._sendAll(type_, true, self._private.compression, data);
+            return try self._sendAll(m_type, true, self._private.compression, data);
         }
 
         var data_iter = std.mem.window(u8, data, 65531, 65531);
         while (data_iter.next()) |item| {
-            const item_type = if (data_iter.index == 65531) type_ else MessageType.Continue;
+            const item_type = if (data_iter.index == 65531) m_type else MessageType.Continue;
             const last_item = data_iter.index == null;
 
             const send_result = try self._sendAll(
